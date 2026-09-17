@@ -1,0 +1,9 @@
+# 이 저장소는 public 입니다 — 아래는 절대 올리지 않습니다.
+node_modules/
+serviceAccount*.json
+*service-account*.json
+# 정성 피드백 내려받기·분류 결과 (사용자가 쓴 원문이 들어 있음)
+feedback.*
+*.notes.json
+*.classified.csv
+*.sample.csv

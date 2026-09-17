@@ -149,6 +149,7 @@ select{width:100%;border:1px solid var(--line-dark);padding:9px;background:var(-
 .genre-chips,.my-genre-edit{display:flex;flex-wrap:wrap;gap:5px}
 .genre-chips button,.my-genre-edit button{border:1px solid var(--line-dark);background:var(--paper);padding:7px 10px;font-size:.72rem;color:var(--mid)}
 .genre-chips button:hover,.my-genre-edit button:hover{border-color:var(--ink);color:var(--ink)}
+.genre-chips button:disabled{opacity:.35;cursor:not-allowed;text-decoration:line-through}
 .genre-chips button[aria-pressed=true],.my-genre-edit button[aria-pressed=true]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
 .manual{margin-top:12px;border:1px solid var(--line);background:var(--paper)}
 .manual summary{padding:11px 13px;font-weight:600;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;color:var(--mid)}
@@ -751,7 +752,7 @@ async function loadEngine() {
   } else {
     /* ?v= : 이미 설치된 옛 서비스워커(azt-v6)는 이 두 파일을 캐시에서 먼저 돌려준다.
        주소를 바꿔 그 캐시를 비켜 간다. 새 서비스워커(v7)부터는 network-first 라 값은 안 올려도 된다. */
-    AZT_ENGINE = await import("./engine/engine.js?v=230");
+    AZT_ENGINE = await import("./engine/engine.js?v=231");
     const res = await fetch("./rules/rules.compiled.json?v=230", { cache: "no-cache" });
     if (!res.ok) throw new Error("rules.compiled.json HTTP " + res.status);
     AZT_RULES = await res.json();
@@ -826,6 +827,88 @@ const SESSION_NOTE_MAX = 200;
 const $ = (id) => document.getElementById(id);
 const statusBox = null, statusText = $("statusText");
 let SONGS = [];
+
+/* ── 장르 (2026-09-17 수정) ─────────────────────────────────────────────
+   곡 데이터의 장르는 `genre` 필드에 **배열**로 들어 있다 (예: genre: ["K-발라드"]).
+   이전 코드는 `genres`(배열) 또는 `genre`(문자열)만 읽어서 2,398곡 전부 장르가 빈 값이 됐고,
+   그래서 장르를 골라도 "해당 곡 0곡 → 부족하니 전체에서 추천"으로 조용히 넘어가고 있었다.
+
+   곡 데이터의 표기(예: "K-발라드")와 화면의 장르 버튼(예: "발라드", "K-pop")은 이름이 다르다.
+   그래서 곡을 불러올 때 한 번, 데이터 표기 → 화면 장르 이름으로 바꿔 둔다(GENRE_RULES).
+   이후 필터·엔진·개인화(장르 묶음)는 전부 '화면 장르 이름' 하나만 쓴다.
+   ⚠️ 아래 규칙은 실제 표기 목록을 다 보기 전에 만든 것이다. 콘솔에서 AZT_DEBUG.catalogReport() 를 실행하면
+      '어느 버튼에도 안 잡힌 표기'가 나온다 — 그 목록을 보고 규칙을 보완할 것. */
+const GENRE_RULES = {
+  "K-pop":   /k-?pop|케이팝|k-?팝|^k-/i,              // "K-발라드"·"K-힙합"처럼 K- 로 시작하면 한국 대중음악으로 본다
+  "발라드":   /ballad|발라드/i,
+  "힙합":     /hip[ -]?hop|\brap\b|힙합|랩/i,
+  "R&B":     /r&b|rnb|r ?n ?b|\bsoul\b|알앤비|소울/i,
+  "인디":     /indie|인디/i,
+  "록":       /\brock\b|\bpunk\b|\bmetal\b|록|락|메탈|밴드/i,
+  "팝":       /(^|[^a-z-])pop\b|(^|[^가-힣-])팝$|^팝/i,  // K-팝·J-팝·시티팝은 아래 제외 규칙으로 뺀다
+  "재즈":     /jazz|bossa|재즈|보사/i,
+  "클래식":   /classical|orchestra|클래식|오케스트라/i,
+  "lo-fi":   /lo-?fi|chillhop|로파이/i,
+  "EDM":     /\bedm\b|electro|house|techno|trance|dubstep|\bdance\b|일렉|댄스/i,
+  "OST":     /\bost\b|soundtrack|사운드트랙|드라마|영화|애니/i,
+  "시티팝":   /city ?pop|시티 ?팝/i,
+  "뉴에이지": /new ?age|ambient|뉴에이지|앰비언트/i,
+};
+const GENRE_RULE_EXCLUDE = { "팝": /k-?pop|j-?pop|c-?pop|k-?팝|j-?팝|케이팝|제이팝|city ?pop|시티 ?팝/i,
+                             "EDM": /^k-댄스$/i };
+function readRawGenres(d, pr) {           // genre / genres — 배열이든 문자열이든 받아서 평평하게
+  const out = [];
+  const take = (v) => {
+    if (Array.isArray(v)) v.forEach(take);
+    else if (typeof v === "string") v.split(/[,;|]/).forEach(x => { x = x.trim(); if (x) out.push(x); });
+  };
+  take(d.genre); take(d.genres); take(pr && pr.genre); take(pr && pr.genres);
+  return [...new Set(out)];
+}
+const UNMAPPED_GENRES = {};               // 어느 버튼에도 안 잡힌 데이터 표기 → 곡 수 (진단용)
+function toGenreLabels(rawList) {
+  const labels = new Set();
+  for (const raw of rawList) {
+    let hit = false;
+    for (const [label, pat] of Object.entries(GENRE_RULES)) {
+      const ex = GENRE_RULE_EXCLUDE[label];
+      if (raw.toLowerCase() === label.toLowerCase() || (pat.test(raw) && !(ex && ex.test(raw)))) { labels.add(label); hit = true; }
+    }
+    if (!hit) UNMAPPED_GENRES[raw] = (UNMAPPED_GENRES[raw] || 0) + 1;
+  }
+  return [...labels];
+}
+function genreCounts() {                  // 화면 장르 이름 → 곡 수
+  const c = {};
+  for (const s of SONGS) for (const g of (s.genres || [])) c[g] = (c[g] || 0) + 1;
+  return c;
+}
+/* 콘솔 진단: AZT_DEBUG.catalogReport() — 장르 표기·매핑 결과·가사 관련 곡 수를 표로 찍는다 */
+window.AZT_DEBUG = {
+  catalogReport() {
+    const raw = {};
+    for (const s of SONGS) for (const g of (s.genresRaw || [])) raw[g] = (raw[g] || 0) + 1;
+    const sortDesc = o => Object.entries(o).sort((a, b) => b[1] - a[1]);
+    console.log("── 곡 데이터의 장르 표기 (원본) ──"); console.table(sortDesc(raw).map(([표기, 곡수]) => ({ 표기, 곡수, 버튼: toGenreLabelsQuiet(표기).join(", ") || "(없음)" })));
+    console.log("── 화면 장르 버튼별 곡 수 ──"); console.table(GENRE_OPTIONS.map(g => ({ 버튼: g, 곡수: genreCounts()[g] || 0 })));
+    console.log("── 어느 버튼에도 안 잡힌 표기 ──"); console.table(sortDesc(UNMAPPED_GENRES).map(([표기, 곡수]) => ({ 표기, 곡수 })));
+    const inst = SONGS.filter(songIsInstrumental).length, noGenre = SONGS.filter(s => !(s.genres || []).length).length;
+    const lowTalk = SONGS.filter(s => songIsInstrumental(s) || songSpokenness(s) <= PREFER_INSTRUMENTAL_MAX_SPOKENNESS).length;
+    console.log("── 가사 조건별 곡 수 ──");
+    console.table([{ 조건: "전체", 곡수: SONGS.length }, { 조건: "가사 없는 곡만 (연주곡)", 곡수: inst },
+                   { 조건: "가사 있는 곡 (연주곡 제외)", 곡수: SONGS.length - inst }, { 조건: "가사 적은 곡 (연주곡 + 말 비중 하위 40%)", 곡수: lowTalk },
+                   { 조건: "장르 버튼이 하나도 안 붙은 곡", 곡수: noGenre }]);
+    return "위 표 4개를 캡처하거나 복사해 주세요";
+  }
+};
+function toGenreLabelsQuiet(raw) {        // 진단용: UNMAPPED 집계를 건드리지 않는 버전
+  const out = [];
+  for (const [label, pat] of Object.entries(GENRE_RULES)) {
+    const ex = GENRE_RULE_EXCLUDE[label];
+    if (raw.toLowerCase() === label.toLowerCase() || (pat.test(raw) && !(ex && ex.test(raw)))) out.push(label);
+  }
+  return out;
+}
 const GENRE_OPTIONS = ["K-pop","발라드","힙합","R&B","인디","록","팝","재즈","클래식","lo-fi","EDM","OST","시티팝","뉴에이지"];
 let SELECTED_GENRES = [];
 let RECOMMEND_MINUTES = 30;
@@ -910,13 +993,13 @@ async function init() {
       const va = (nv !== null && ne !== null) ? { v: nv, e: ne } : null;
       const tempo = (typeof pr.tempo === "number" && pr.tempo > 0) ? pr.tempo : null;
       const trackId = d.spotify_track_id || d.source_track_id;
-      const genres = Array.isArray(d.genres) ? d.genres
-                   : (typeof d.genre === "string" && d.genre ? [d.genre] : []);
+      const genresRaw = readRawGenres(d, pr);          // 데이터 표기 그대로 (예: ["K-발라드"])
+      const genres = toGenreLabels(genresRaw);         // 화면 장르 이름으로 (예: ["K-pop", "발라드"])
       SONGS.push({
         id: doc.id,
         title: d.title || doc.id,
         artist: d.artist || "",
-        tags, va, tempo, trackId, genres,
+        tags, va, tempo, trackId, genres, genresRaw,
         va_source: vaSource,
         popularity: Number(d.popularity ?? pr.popularity ?? 0),
         durationSec: Number(pr.duration_ms || d.duration_ms || d.duration_seconds || 0) / (pr.duration_ms || d.duration_ms ? 1000 : 1),
@@ -934,6 +1017,10 @@ async function init() {
       + (v2Missing ? " (v2 좌표 " + v2Cov + "%, 나머지는 provider 폴백)" : "")
       + (fallbackUsed ? " · 일부 곡은 검수 전 태그 사용" : ""));
     SONGS_READY = true;
+    { const gc = genreCounts(), none = SONGS.filter(x => !x.genres.length).length;
+      console.info("[AZT] 장르 — " + GENRE_OPTIONS.map(g => g + " " + (gc[g] || 0)).join(" · ") + " · (장르 없음 " + none + ")"
+        + (Object.keys(UNMAPPED_GENRES).length ? " · 안 잡힌 표기 " + Object.keys(UNMAPPED_GENRES).length + "종 → AZT_DEBUG.catalogReport()" : "")); }
+    renderGenreChips();   // 곡 수를 알게 됐으니 버튼에 곡 수를 붙이고, 0곡인 장르는 끈다
     loadLocalPersonal();
     loadGlobalStats();   // 전체 사용자 피드백 통계 (비동기, 실패해도 무관)
     updateGo();   // 지금·목표가 이미 탭돼 있으면 즉시 활성화
@@ -1379,10 +1466,17 @@ function songById(id) { return SONGS.find(s => s.id === id); }
 function renderGenreChips() {
   const box = $("genreChips");
   if (!box) return;
-  box.innerHTML = GENRE_OPTIONS.map(g =>
-    "<button type='button' aria-pressed='" + SELECTED_GENRES.includes(g) + "' data-genre='" + esc(g) + "'>" + esc(g) + "</button>"
-  ).join("");
-  box.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+  /* 곡이 로드된 뒤에는 장르별 곡 수를 보여 주고, 0곡인 장르는 고를 수 없게 한다 —
+     고를 수 있는데 결과에 반영이 안 되는 버튼이 '골랐는데 다른 게 나와요'의 원인이었다. */
+  const gc = SONGS_READY ? genreCounts() : null;
+  if (gc) SELECTED_GENRES = SELECTED_GENRES.filter(g => (gc[g] || 0) > 0);
+  box.innerHTML = GENRE_OPTIONS.map(g => {
+    const n = gc ? (gc[g] || 0) : null;
+    return "<button type='button' aria-pressed='" + SELECTED_GENRES.includes(g) + "' data-genre='" + esc(g) + "'"
+      + (n === 0 ? " disabled title='이 장르로 분류된 곡이 아직 없어요'" : "") + ">" + esc(g)
+      + (n ? " <span style='opacity:.55;font-size:.9em'>" + n + "</span>" : "") + "</button>";
+  }).join("");
+  box.querySelectorAll("button:not([disabled])").forEach(b => b.addEventListener("click", () => {
     const g = b.dataset.genre;
     if (SELECTED_GENRES.includes(g)) SELECTED_GENRES = SELECTED_GENRES.filter(x => x !== g);
     else SELECTED_GENRES = [...SELECTED_GENRES, g];
@@ -1816,7 +1910,9 @@ function buildHeardItems() {
   for (const g of ((USER_PROFILE && USER_PROFILE.preferred_genres) || [])) if (g) items.push({ liked: true, genres: [g], days: 0 });
   return items;
 }
-let LAST_PERSONAL_SNAPSHOT = null;   // 추천 로그에 남기는 개인화 상태 요약
+let LAST_PERSONAL_SNAPSHOT = null;
+let LAST_FILTER_SNAPSHOT = null;     // 추천 로그용: 장르·가사 조건이 실제로 적용됐는지
+let GENRE_NOTICE = null;             // 고른 장르를 적용하지 못했을 때 결과 화면에 보여 줄 안내   // 추천 로그에 남기는 개인화 상태 요약
 
 function buildUserProfile() {
   const song_feedback = {}, global_stats = {};
@@ -1931,6 +2027,7 @@ async function logRecommendation(input, seq, extras) {
         current_va: LAST_CUR_VA,   // 사용자가 좌표에 직접 탭한 지금 상태
         target_va: LAST_TGT_VA,    // 사용자가 좌표에 직접 탭한 목표 상태
         input_mode: { current: CUR_MODE, target: TGT_MODE },   // 점별 입력 방식: tap | chip | nl
+        filters: LAST_FILTER_SNAPSHOT,             // { lyric, genres, genre_applied, genre_pool(고른 장르의 곡 수), pool(최종 후보 수) }
         personalization: LAST_PERSONAL_SNAPSHOT,   // { mode, heard(들어본 곡), liked, like_rate(내 평균 좋아요 비율) } — 개인화 효과 분석용
         pace_mode: PACE_MODE || "auto",   // 감정 여정 속도: auto | fast | slow — 경로 재현·분석용
         nl_text: LAST_NL_TEXT,     // 자연어 원문 (해석 품질 감사용, 미사용 시 null)
@@ -2574,8 +2671,11 @@ async function recommend() {
   const lyric = $("lyric").value;
   RECOMMEND_MINUTES = Number($("listenTime").value) || 30;
   SELECTED_GENRES = [...SELECTED_GENRES];
-  const matchesGenre = s => !!(s.genres && s.genres.length &&
-    s.genres.some(g => SELECTED_GENRES.some(x => String(g).toLowerCase().includes(String(x).toLowerCase()))));
+  /* 곡의 genres 는 이미 '화면 장르 이름'이다 → 이름이 정확히 같은지만 본다.
+     (이전: 부분 문자열 비교 — "팝"을 고르면 "K-팝"·"J-팝"·"시티팝"이 전부 걸렸다.)
+     여러 장르를 고르면 그중 하나라도 해당하는 곡. */
+  const matchesGenre = s => (s.genres || []).some(g => SELECTED_GENRES.includes(g));
+  GENRE_NOTICE = null;
   let pool = SONGS;
   /* instrumental_only / prefer_vocal 은 엔진 게이트로 넘긴다(아래 gates).
      prefer_instrumental 은 '선호'라 게이트가 아니므로 여기서만 약하게 거른다. */
@@ -2589,11 +2689,16 @@ async function recommend() {
      따로 갖고 있어서 30분에 앱은 5곡, 엔진은 8곡을 가정했다(장르 풀 충분 여부 판단이 어긋남). */
   const sc = AZT_RULES.iso.song_count;
   const needCount = Math.max(sc.min, Math.min(sc.max, Math.floor(RECOMMEND_MINUTES / sc.per_minutes)));
+  let genreApplied = null, genrePoolSize = null;
   if (SELECTED_GENRES.length) {
     const genrePool = pool.filter(matchesGenre);
-    if (genrePool.length >= needCount) pool = genrePool;
-    // 부족하면 전체 풀을 유지하되, 아래 정렬·경로 선택에서 장르 일치가 항상 앞선다
+    genrePoolSize = genrePool.length;
+    genreApplied = genrePool.length >= needCount;
+    if (genreApplied) pool = genrePool;          // 고른 장르의 곡만으로 추천
+    else GENRE_NOTICE = SELECTED_GENRES.join("·") + " 장르이면서 가사 조건에 맞는 곡이 " + genrePool.length
+      + "곡뿐이라(" + needCount + "곡 필요) 이번에는 다른 장르도 함께 골랐어요.";   // 조용히 넘어가지 않는다
   }
+  LAST_FILTER_SNAPSHOT = { lyric, genres: [...SELECTED_GENRES], genre_applied: genreApplied, genre_pool: genrePoolSize, pool: pool.length };
 
   if (!pool.length) {
     $("results").innerHTML = "<div class='scene-inner result-cabin'><div class='result-placeholder'><h2>맞는 곡이 충분하지 않아요</h2><p>장르나 가사 조건을 조금 넓혀서 다시 만들어 볼까요?</p><button class='ghost' type='button' data-go-scene='stateRoom'>오늘의 음악 다시 만들기</button></div></div>";
@@ -2690,7 +2795,10 @@ function renderResults(list, seq, cur, tgt, poolSize, stepOf) {
   const box = $("results");
   if (!list.length) { box.innerHTML = "<div class='scene-inner result-cabin'><div class='result-placeholder'><h2>오늘은 맞는 곡을 찾지 못했어요</h2><p>장르나 가사 조건을 조금 넓혀서 다시 찾아볼까요?</p></div></div>"; return; }
   const playable = seq.filter(s=>s.trackId);
-  let html = "<div class='section-shell'><div class='section-head'><div><h2>오늘의 음악</h2><p>"+esc(vaWord(cur))+" → "+esc(vaWord(tgt))+" · "+RECOMMEND_MINUTES+"분의 여정</p></div></div><div class='results-wrap'>";
+  let html = "<div class='section-shell'><div class='section-head'><div><h2>오늘의 음악</h2><p>"+esc(vaWord(cur))+" → "+esc(vaWord(tgt))+" · "+RECOMMEND_MINUTES+"분의 여정</p>"
+    + (SELECTED_GENRES.length && !GENRE_NOTICE ? "<p class='plane-note'>" + esc(SELECTED_GENRES.join(" · ")) + " 장르에서만 골랐어요.</p>" : "")
+    + (GENRE_NOTICE ? "<p class='plane-note' style='font-weight:700'>" + esc(GENRE_NOTICE) + "</p>" : "")
+    + "</div></div><div class='results-wrap'>";
   if(playable.length){
     const first=playable[0];
     html += "<div class='cabin-player current-song-card' data-song-card='"+esc(first.id)+"'><div class='player-title'><div><div class='now' id='nowPlayingTitle'>"+esc(first.title)+"</div><div class='plane-note' id='nowPlayingArtist'>"+esc(first.artist||"")+"</div></div></div><div class='player-frame'><div id='embedHost'></div><div id='playOverlay' class='play-overlay'><button id='playerStart' type='button'>▶ 재생</button></div></div><div class='player-controls'><div><div class='listen-meta'><span id='listenMetricText'>실제 청취 0%</span><span>좋아요는 실제 10초 후</span></div><div class='listen-meter'><i id='listenMetricBar'></i></div><div class='player-status' id='playerFeedbackToast'>재생 버튼을 누르면 음악이 시작돼요.</div><div style='display:flex;align-items:center;gap:10px;margin-top:10px'><button id='aztPlayToggle' type='button'>▶ 재생</button></div></div><div class='phase' id='listenSecondsText'>0초</div></div><div class='player-actions'><button type='button' class='song-action' data-action='like' data-song-id='"+esc(first.id)+"' disabled>10초 후 좋아요</button><button type='button' class='song-action dislike' data-action='dislike' data-song-id='"+esc(first.id)+"'>싫어요</button><button type='button' class='song-action' data-action='playlist' data-song-id='"+esc(first.id)+"'>＋ 벽에 붙이기</button></div><p class='plane-note' id='memberNote' hidden>로그인하면 좋아요·벽에 붙이기를 쓸 수 있어요.</p><div class='seq-nav'><button id='prevTrack' type='button'>← 이전 곡</button><button id='nextTrack' type='button'>다음 곡 →</button></div><div class='reason-box'>현재 상태와 가까운 음악에서 시작해요. 충분히 들은 뒤 점점 목표 상태 쪽으로 이동합니다.</div></div>";
