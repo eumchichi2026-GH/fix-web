@@ -733,38 +733,19 @@ async function loadEngine() {
     AZT_ENGINE = globalThis.__AZT_ENGINE__;      // 단일 파일 빌드
     AZT_RULES  = globalThis.__AZT_RULES__;
   } else {
-    AZT_ENGINE = await import("./engine/engine.js");
-    const res = await fetch("./rules/rules.compiled.json", { cache: "no-cache" });
+    /* ?v= : 이미 설치된 옛 서비스워커(azt-v6)는 이 두 파일을 캐시에서 먼저 돌려준다.
+       주소를 바꿔 그 캐시를 비켜 간다. 새 서비스워커(v7)부터는 network-first 라 값은 안 올려도 된다. */
+    AZT_ENGINE = await import("./engine/engine.js?v=220");
+    const res = await fetch("./rules/rules.compiled.json?v=220", { cache: "no-cache" });
     if (!res.ok) throw new Error("rules.compiled.json HTTP " + res.status);
     AZT_RULES = await res.json();
   }
-  ALGO_VERSION = AZT_RULES.rules_version + "+" + AZT_RULES.rules_hash;
+  ALGO_VERSION = AZT_RULES.rules_version + "+" + AZT_RULES.rules_hash
+               + (AZT_ENGINE.ENGINE_VERSION ? "+e" + AZT_ENGINE.ENGINE_VERSION : "");
 
-  /* ── [임시 오버라이드] 시간별 ISO 전환점 ────────────────────────
-     짧은 감상은 유지 구간을 둘 여유가 없어 전 구간을 이동(펼침)에 쓰고,
-     길수록 목표 상태 유지 구간을 늘립니다.
-
-     ⚠️ 경계값은 곡 수 산정에 종속됩니다. 8/16 기준(분÷6)으로 잡았던
-        20/35분을 실측 3.73분/곡·상한 9곡에 맞춰 재계산했습니다.
-          15분 ≈ 4곡  ·  25분 ≈ 6~7곡  ·  34분 이상 = 9곡(상한)
-        곡 수 규칙을 또 바꾸면 이 경계도 함께 옮겨야 합니다.
-
-     ⚠️ 이 블록은 v2.rules.yaml 에 아래 값을 반영하고 build_rules.py 로
-        재컴파일한 뒤 반드시 삭제하세요. 여기 두면 Python 검증기와
-        앱이 서로 다른 경로를 계산합니다.
-
-        iso:
-          transition_point:
-            - { up_to: 15,  at: 1.0 }    # ~4곡: 전체 펼침
-            - { up_to: 25,  at: 0.75 }   # 5~7곡: 마지막 1~2곡 유지
-            - { up_to: 999, at: 0.6 }    # 8곡 이상: 후반 40% 유지
-  ------------------------------------------------------------------ */
-  AZT_RULES.iso.transition_point = [
-    { up_to: 15,  at: 1.0 },
-    { up_to: 25,  at: 0.75 },
-    { up_to: 999, at: 0.6 },
-  ];
-  ALGO_VERSION += "+tp-override";   // 로그에서 오버라이드 기간 구분용
+  /* 시간별 ISO 전환점은 2026-09-17 에 rules.compiled.json(iso.transition_point)로 이관했습니다.
+     여기서 규칙을 덮어쓰지 않습니다 — 앱에만 있는 값은 검증 도구가 읽지 못합니다.
+     값이 같으므로 추천은 그대로이고, 로그의 algorithm_version 에서 "+tp-override" 꼬리표만 사라집니다. */
 
   console.info("[AZT] 엔진 로드", ALGO_VERSION);
 }
@@ -943,6 +924,28 @@ let USER_PROFILE = null;   // users/{uid} 문서 내용
 let TASTE_VECTOR = null;   // 선호곡 태그 평균 (없으면 null)
 let PERSONAL_FB  = {};     // song_id → 본인 피드백 점수 합 (대략 -1 ~ +1)
 let PERSONAL_FB_N = {};    // song_id → 피드백 관측 건수 (R1 신뢰도 축소용)
+/* R6 시간 감쇠 입력. 엔진은 곡당 last_days 하나만 받으므로 '기여도(|v|) 가중 평균 경과일'을 넘긴다.
+   (최신 1건만 쓰면 오래된 누적이 늙지 않고, 단순 평균은 큰 신호를 과소평가한다.) */
+let PERSONAL_FB_W  = {};   // song_id → Σ|v|
+let PERSONAL_FB_WD = {};   // song_id → Σ|v|·경과일
+let STATE_DAYS = {};       // song_id → 가장 최근 좋아요·벽 붙이기 이후 경과일 (users 문서엔 시각이 없어 이벤트 로그에서 회수)
+function resetPersonalFeedback() {
+  PERSONAL_FB = {}; PERSONAL_FB_N = {}; PERSONAL_FB_W = {}; PERSONAL_FB_WD = {}; STATE_DAYS = {};
+}
+function addPersonalSignal(id, v, days) {
+  PERSONAL_FB[id]   = (PERSONAL_FB[id]   || 0) + v;
+  PERSONAL_FB_N[id] = (PERSONAL_FB_N[id] || 0) + 1;
+  const w = Math.abs(v);
+  PERSONAL_FB_W[id]  = (PERSONAL_FB_W[id]  || 0) + w;
+  PERSONAL_FB_WD[id] = (PERSONAL_FB_WD[id] || 0) + w * (days || 0);
+}
+function feedbackAgeDays(id) {
+  return PERSONAL_FB_W[id] > 0 ? PERSONAL_FB_WD[id] / PERSONAL_FB_W[id] : 0;
+}
+function daysSince(ts) {   // Firestore Timestamp → 경과일. 시각을 모르면 0(오늘) — 감쇠하지 않는다.
+  const ms = ts && typeof ts.toMillis === "function" ? ts.toMillis() : null;
+  return ms ? Math.max(0, (Date.now() - ms) / 86400000) : 0;
+}
 let GLOBAL_FB    = {};     // song_id → 전체 사용자 피드백 점수 (대략 -1 ~ +1)
 let AUTH_MODE = "login";   // 모달 1단계 모드: login | signup
 let OB_TRACKS = [];        // 온보딩에서 고른 선호곡 (SONGS 항목 참조)
@@ -1099,7 +1102,7 @@ async function handleUserChange(user, force) {
   const key = user ? user.uid + ":" + user.isAnonymous : "none";
   if (!force && key === LAST_HANDLED) return;
   LAST_HANDLED = key;
-  USER_PROFILE = null; TASTE_VECTOR = null; PERSONAL_FB = {}; PERSONAL_FB_N = {};
+  USER_PROFILE = null; TASTE_VECTOR = null; resetPersonalFeedback();
   if (!user || user.isAnonymous) {
     /* 로그아웃: 개인화 상태를 비워 다른 사람 데이터가 남지 않게 하고, 내 방을 게스트 화면으로 전환 */
     LIKED_SONGS = new Set(); DISLIKED_SONGS = new Set(); PLAYLIST_SONGS = new Set(); PLAYLIST_NOTES = {};
@@ -1551,9 +1554,7 @@ async function openMyAzt() {
 }
 
 async function loadPersonalFeedback(uid) {
-  PERSONAL_FB = {}; PERSONAL_FB_N = {};
-  const add = (id, v) => { PERSONAL_FB[id] = (PERSONAL_FB[id] || 0) + v;
-                           PERSONAL_FB_N[id] = (PERSONAL_FB_N[id] || 0) + 1; };
+  resetPersonalFeedback();
   try {
     const db = firebase.firestore();
     /* R6: 최신순 정렬로 '최근 N건'을 보장. where+orderBy 조합은 Firestore 복합 색인이
@@ -1579,11 +1580,16 @@ async function loadPersonalFeedback(uid) {
     const evSnap = await queryRecent("context_events", 400);
     evSnap.forEach(d => {
       const e = d.data();
-      if (e.type === "track_complete" && e.payload && e.payload.song_id) add(e.payload.song_id, 0.3);
-      else if (e.type === "spotify_click" && e.payload && e.payload.song_id) add(e.payload.song_id, 0.15);
+      const days = daysSince(e.created_at);
+      const sid = e.payload && e.payload.song_id;
+      if (e.type === "track_complete" && sid) addPersonalSignal(sid, 0.3, days);
+      else if (e.type === "spotify_click" && sid) addPersonalSignal(sid, 0.15, days);
+      else if ((e.type === "like" || e.type === "playlist_add") && sid) {
+        STATE_DAYS[sid] = (sid in STATE_DAYS) ? Math.min(STATE_DAYS[sid], days) : days;   // 가장 최근 것
+      }
       else if (e.type === "post_change" && e.rec_id && recSongs[e.rec_id]) {
         const c = (e.payload && typeof e.payload.change === "number") ? e.payload.change : 0;  // -2 ~ +2
-        recSongs[e.rec_id].forEach(id => add(id, c * 0.35));  // 전후 변화가 그 시퀀스의 곡들에 귀속
+        recSongs[e.rec_id].forEach(id => addPersonalSignal(id, c * 0.35, days));  // 전후 변화가 그 시퀀스의 곡들에 귀속
       }
     });
   } catch (e) {
@@ -1658,20 +1664,27 @@ function toContractSong(s) {
 
 /* 앱의 신호(부호 있는 점수)를 엔진이 기대하는 pos/neg 로 변환.
    ※ 파이프라인이 pos/neg 카운트를 직접 내보내면 이 근사는 걷어내세요. */
+/* [2026-09-17 버그 수정] 이전 식은 v>=0 일 때 pos=cnt·v, neg=cnt·(1−v) 였다. 그러면 긍정 비율이 v 가 되어
+   +0.5 미만의 '긍정' 신호가 전부 부정으로 읽혔다 — 완청 1회(+0.3)가 선호를 0.50→0.45 로, Spotify 클릭
+   (+0.15)이 0.41 로 '깎고' 있었다. 점수 v 는 −1(완전 부정) · 0(중립) · +1(완전 긍정)이므로
+   긍정 비율 = (1+v)/2 로 옮겨야 0 이 중립(0.5)에 대응한다. 관측 건수 cnt 는 그대로 둔다. */
 function splitSignal(score, n) {
   const v = Math.max(-1, Math.min(1, Number(score) || 0));
   const cnt = Math.max(1, Number(n) || 1);
-  return v >= 0 ? { pos: cnt * v, neg: cnt * (1 - v) } : { pos: 0, neg: cnt * -v };
+  const ratio = (1 + v) / 2;
+  return { pos: cnt * ratio, neg: cnt * (1 - ratio) };
 }
 
 function buildUserProfile() {
   const song_feedback = {}, global_stats = {}, artist_affinity = {}, genre_affinity = {};
 
   for (const id of Object.keys(PERSONAL_FB || {})) {
-    song_feedback[id] = { ...splitSignal(PERSONAL_FB[id], PERSONAL_FB_N[id]), last_days: 0 };
+    song_feedback[id] = { ...splitSignal(PERSONAL_FB[id], PERSONAL_FB_N[id]), last_days: feedbackAgeDays(id) };
   }
-  for (const id of LIKED_SONGS)     song_feedback[id] = { pos: 3, neg: 0, last_days: 0 };
-  for (const id of PLAYLIST_SONGS)  song_feedback[id] = song_feedback[id] || { pos: 2, neg: 0, last_days: 0 };
+  /* R6: last_days 가 전부 0 이면 0.5^(0/14)=1 이라 반감기가 사실상 무한대다(규칙은 있는데 입력이 죽어 있던 상태).
+     좋아요·벽 붙이기 시각은 이벤트 로그에서 회수하고, 로그에서 못 찾으면 0(감쇠 없음)으로 둔다. */
+  for (const id of LIKED_SONGS)     song_feedback[id] = { pos: 3, neg: 0, last_days: STATE_DAYS[id] || 0 };
+  for (const id of PLAYLIST_SONGS)  song_feedback[id] = song_feedback[id] || { pos: 2, neg: 0, last_days: STATE_DAYS[id] || 0 };
   for (const id of Object.keys(GLOBAL_FB || {})) {
     global_stats[id] = splitSignal(GLOBAL_FB[id], 10);
   }
@@ -1784,8 +1797,8 @@ async function logEvent(type, payload) {
   /* 전체 사용자 통계(song_stats)와 이 세션의 개인 피드백을 함께 갱신 —
      다음 추천부터 바로 반영된다. */
   const inc = firebase.firestore.FieldValue.increment;
-  const addLocal = (id, v) => { PERSONAL_FB[id] = (PERSONAL_FB[id] || 0) + v;
-                                PERSONAL_FB_N[id] = (PERSONAL_FB_N[id] || 0) + 1; };
+  const addLocal = (id, v) => addPersonalSignal(id, v, 0);   // 방금 일어난 일 → 경과일 0
+  if ((type === "like" || type === "playlist_add") && payload.song_id) STATE_DAYS[payload.song_id] = 0;
   if (type === "spotify_click" && payload.song_id) {
     bumpStats(payload.song_id, { clicks: inc(1) });
     addLocal(payload.song_id, 0.15);
@@ -2417,9 +2430,10 @@ async function recommend() {
   else if (lyric === "prefer_vocal")
     pool = pool.filter(s => !songIsInstrumental(s));
   /* 장르 최우선: 시퀀스 곡 수를 채울 만큼 있으면 장르 곡만 사용 */
-  /* 시간이 슬라이더(5~90분)로 연속값이 되면서 곡 수도 연속으로 계산:
-     평균 6분/곡 가정, 3~15곡 범위. (10→3곡, 30→5곡, 60→10곡, 90→15곡) */
-  const needCount = Math.max(3, Math.min(15, Math.ceil(RECOMMEND_MINUTES / 6)));
+  /* 곡 수는 규칙 파일(iso.song_count)에서 읽는다 — 엔진과 같은 식. 이전엔 앱만 '분÷6, 3~15곡'을
+     따로 갖고 있어서 30분에 앱은 5곡, 엔진은 8곡을 가정했다(장르 풀 충분 여부 판단이 어긋남). */
+  const sc = AZT_RULES.iso.song_count;
+  const needCount = Math.max(sc.min, Math.min(sc.max, Math.floor(RECOMMEND_MINUTES / sc.per_minutes)));
   if (SELECTED_GENRES.length) {
     const genrePool = pool.filter(matchesGenre);
     if (genrePool.length >= needCount) pool = genrePool;
@@ -2494,7 +2508,12 @@ async function recommend() {
   const used = new Set(seq.map(s => s.id));
   let total = seq.reduce((a,s)=>a+estimated(s),0);
   const extras = [];
-  const extraPool = pool.filter(s => !used.has(s.id) && !DISLIKED_SONGS.has(s.id));
+  /* 경유 시퀀스는 '이동', 그 뒤 곡은 '도착한 상태 유지' 역할 → 목표 좌표에 가까운 순으로 채운다.
+     (이전엔 카탈로그 순서 그대로였다. 최근 재생 곡은 시퀀스와 같은 이유로 뺀다.) */
+  const recentSet = new Set(recentlyPlayedIds());
+  const dTgt = s => { const p = songVA(s); return p ? Math.hypot(p.v - tgt.v, p.e - tgt.e) : Infinity; };
+  const extraPool = pool.filter(s => !used.has(s.id) && !DISLIKED_SONGS.has(s.id) && !recentSet.has(s.id))
+                        .sort((a, b) => dTgt(a) - dTgt(b));
   for (const c of extraPool) {
     if (total >= totalTargetSec * 0.85) break;
     extras.push(c); used.add(c.id); total += estimated(c);

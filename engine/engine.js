@@ -1,7 +1,8 @@
 /*
- * AZT 추천 알고리즘 v2.1 (JavaScript) — 앱 런타임용.
+ * AZT 추천 알고리즘 v2.2 (JavaScript) — 앱 런타임용.
  *
- * engine.py 와 완전히 같은 결과를 내야 합니다. 규칙은 여기 없습니다.
+ * 규칙(숫자)은 여기 없습니다 — rules/rules.compiled.json 에 있습니다.
+ * (Python 검증기 engine.py 는 현재 저장소에 없습니다. 복구되면 이 파일과 같은 결과를 내야 합니다.)
  *
  *   1) 좌표 변환   원 V/A → 퍼센타일 좌표
  *   2) 하드 제약   게이트 / 싫어요 / 최근재생 / 아티스트 상한 / 걸음 상한 / 장르
@@ -9,6 +10,10 @@
  *   4) 두 레인     기하가 어디로 갈지, 선호가 동급 중 무엇을
  *   5) 빔 탐색     경로 전체 비용 최소화
  */
+
+/* 엔진 코드 버전. 규칙(rules_hash)은 그대로인데 엔진 동작이 바뀌는 경우를 로그에서 구분한다.
+   2.2.0 (2026-09-17): iso.min_step_span 구현, 영역 풀 걸음당 1회 계산, song_count 출력. */
+export const ENGINE_VERSION = "2.2.0";
 
 const R9 = (x) => Math.round(x * 1e9) / 1e9;
 const R6 = (x) => Math.round(x * 1e6) / 1e6;
@@ -248,10 +253,11 @@ function waypoints(nowC, tgtC, n, at) {
 }
 
 // ── 탐색 ────────────────────────────────────────────────
-function stepCandidates(universe, state, ctx, wp, tgtC, term, rules, inputs, maxStep, band, nExpand,
+function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, maxStep, band, nExpand,
                        stepI = 0, seed = null, pbucket = 0) {
+  /* pool = 이 걸음의 영역 후보. 같은 걸음의 빔 상태들은 경유지가 같아 영역 풀도 같으므로
+     recommend() 가 걸음당 1회만 계산해 넘긴다 (결과 동일, 속도만 개선). */
   const cap = Number(rules.diversity.max_per_artist);
-  const pool = regionPool(universe, ctx, wp, term, rules);
 
   let cands = [];
   for (const s of pool) {
@@ -310,7 +316,18 @@ export function recommend(catalog, rules, inputsIn) {
   const ctx = prepare(catalog, rules);
 
   const dur = inputsIn.duration_min ?? 30;
-  const n = songCount(rules, dur);
+  const nowC = toCoord(ctx, inputsIn.now), tgtC = toCoord(ctx, inputsIn.target);
+
+  /* 경유 곡 수 = max(min, min(시간 기준, floor(여정거리 / min_step_span) + 1))
+     지금·목표가 가까운데 곡을 많이 끼우면 한 걸음이 preference.band 보다 잘게 쪼개져
+     순위가 곡을 구분하지 못하고, 경로가 좁은 덩어리 안을 맴돈다(rules 의 min_step_span_evidence).
+     여정거리는 band 와 같은 작업 좌표계(coordinate_space)에서 잰다 — band 가 그 좌표계의 폭이기 때문. */
+  const byTime = songCount(rules, dur);
+  const journey = R9(dist(nowC, tgtC, term));
+  const span = Number(rules.iso.min_step_span || 0);
+  const byJourney = span > 0 ? Math.floor(journey / span) + 1 : byTime;
+  const n = Math.max(Number(rules.iso.song_count.min), Math.min(byTime, byJourney));
+  const songCountOut = { by_time: byTime, by_journey: byJourney, effective: n, journey: R6(journey) };
   const inputs = { ...inputsIn, _n_songs: n };
 
   let { maxStep, active } = applyModulators(rules, inputs);
@@ -322,10 +339,10 @@ export function recommend(catalog, rules, inputsIn) {
   const baseOut = {};
   for (const [k, v] of Object.entries(ctx.base)) baseOut[k] = R6(v);
   if (!universe.length) {
-    return { rules_version: rules.rules_version, rules_hash: rules.rules_hash, baselines: baseOut, sequence: [] };
+    return { rules_version: rules.rules_version, rules_hash: rules.rules_hash, engine_version: ENGINE_VERSION,
+             baselines: baseOut, song_count: songCountOut, sequence: [] };
   }
 
-  const nowC = toCoord(ctx, inputs.now), tgtC = toCoord(ctx, inputs.target);
   const wps = waypoints(nowC, tgtC, n, transitionAt(rules, dur));
 
   const band = Number(rules.preference.band);
@@ -342,8 +359,9 @@ export function recommend(catalog, rules, inputsIn) {
   for (let wi = 0; wi < wps.length; wi++) {
     const wp = wps[wi];
     const next = [];
+    const stepPool = regionPool(universe, ctx, wp, term, rules);   // 걸음당 1회
     for (const st of beam) {
-      const { cands, bandSize, relaxed } = stepCandidates(universe, st, ctx, wp, tgtC, term, rules, inputs, maxStep, band, nExpand, wi, seed, pbucket);
+      const { cands, bandSize, relaxed } = stepCandidates(stepPool, st, ctx, wp, tgtC, term, rules, inputs, maxStep, band, nExpand, wi, seed, pbucket);
       for (const c of cands) {
         const s = c.song;
         const ac = { ...st.artistCount };
@@ -409,7 +427,9 @@ export function recommend(catalog, rules, inputsIn) {
   return {
     rules_version: rules.rules_version,
     rules_hash: rules.rules_hash,
+    engine_version: ENGINE_VERSION,
     baselines: baseOut,
+    song_count: songCountOut,
     genre_restricted: genreApplied,
     relaxed_steps: best.picks.filter((p) => p.relaxed).length,
     sequence: out,
