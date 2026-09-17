@@ -266,6 +266,19 @@ select{width:100%;border:1px solid var(--line-dark);padding:9px;background:var(-
 .stress-wrap{margin-top:10px}
 .stress-wrap input{width:100%;accent-color:var(--accent)}
 .stress-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:.64rem;letter-spacing:.06em;margin-top:6px}
+.fb-block{border:0;padding:0;margin:16px 0 0;min-width:0}
+.fb-block legend,.fb-label{font-size:.76rem;font-weight:700;color:var(--ink);padding:0}
+.fb-block .fb-hint{font-weight:400;color:var(--muted)}
+.fb-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.fb-chips button{border:1px solid var(--line-dark);background:var(--paper);padding:8px 12px;font-size:.76rem;color:var(--mid)}
+.fb-chips button:hover:not(:disabled){border-color:var(--ink);color:var(--ink)}
+.fb-chips button[aria-pressed=true]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.fb-block:disabled .fb-chips button,.fb-block:disabled textarea{background:var(--panel);color:var(--muted);cursor:not-allowed}
+.fb-note{display:block;width:100%;margin-top:12px;min-height:64px;border:1px solid var(--line-dark);padding:10px 12px;background:var(--paper);resize:vertical;font-size:.8rem}
+.fb-count{font-size:.68rem;color:var(--muted);text-align:right;margin-top:4px}
+.dislike-why{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.dislike-why .fb-label{font-size:.72rem}
+.dislike-why .fb-done{font-size:.72rem;color:var(--mid)}
 .after-btn{margin-top:12px;border:1px solid var(--ink);background:var(--ink);color:var(--on-ink);padding:10px 16px;font-weight:600;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase}
 .after-btn:hover{background:var(--ink-strong)}
 .after-btn:disabled{background:var(--panel);border-color:var(--line-dark);color:var(--muted)}
@@ -785,6 +798,26 @@ const GOAL_CHIPS = [
 ];
 
 const TAG_LABELS = { instrumental:"연주곡", spokenness:"말 비중", tempo:"빠르기" };
+
+/* ── 정성 피드백: "안 맞은 이유" (2026-09-17) ────────────────────────────────
+   칩 하나가 알고리즘 부품 하나를 가리킨다 — 집계하면 "N명 중 M명이 ○○를 지적" 이
+   곧 어느 부품을 고칠지의 근거가 된다. [코드, 화면 문구, 가리키는 부품]
+   ⚠️ 코드(첫 칸)는 로그에 저장되는 값이다. 문구는 바꿔도 되지만 코드는 바꾸지 말 것
+      — 바꾸면 이전 기록과 합산이 안 된다. 주관식 Gemini 분류(tools/classify_notes.mjs)도 같은 코드를 쓴다.
+
+   두 곳에서 받는다:
+     세션 단위  '듣고 난 뒤' 카드 — 복수 선택 + 한 줄 주관식. 익명 포함 전원. post_change.payload 에 저장.
+                → **집계 전용.** 개인 취향 점수에는 넣지 않는다.
+     곡 단위    싫어요를 누른 직후 — 주된 이유 하나. 로그인 사용자만(싫어요가 회원 전용). dislike_reason 이벤트.
+                → 개인화 재료 (예: '경로가 튐' 때문에 싫어요한 곡은 취향 문제가 아니다). */
+const MISFIT_REASONS = [
+  ["path_jump",      "분위기가 갑자기 튀어요",   "경로 설계 (경유지·band)"],
+  ["not_my_taste",   "제 취향이 아니에요",       "선호 lane (개인화)"],
+  ["mood_mismatch",  "지금 제 기분이랑 달라요",  "입력 해석 (감정 칩 좌표·Gemini)"],
+  ["vocal_bother",   "가사·목소리가 거슬려요",   "가사 게이트"],
+  ["too_repetitive", "너무 자주 나와요",         "다양성 (최근 재생 제외)"],
+];
+const SESSION_NOTE_MAX = 200;
 
 /* ===================== 이하 앱 로직 ===================== */
 const $ = (id) => document.getElementById(id);
@@ -1397,6 +1430,36 @@ async function setSongFeedback(songId, kind) {
   renderMyAzt();
   refreshSongActions(songId);
 }
+/* 싫어요를 누른 그 카드 아래에 '주된 이유 하나'를 묻는다. 고르지 않아도 싫어요는 그대로 유효하다.
+   한 번 고르면 닫힌다 — 곡당 이유 하나라 집계가 단순하다(복수 선택은 세션 단위에서 받는다). */
+function hideDislikeReasons(songId) {
+  document.querySelectorAll(".dislike-why[data-for='" + CSS.escape(songId) + "']").forEach(el => el.remove());
+}
+function showDislikeReasons(card, songId) {
+  hideDislikeReasons(songId);
+  if (!card) return;
+  const anchor = card.querySelector(".song-actions, .player-actions") || card;
+  const box = document.createElement("div");
+  box.className = "dislike-why"; box.dataset.for = songId;
+  box.innerHTML = "<div class='fb-label'>어떤 점이 가장 안 맞았나요? <span class='fb-hint'>선택</span></div><div class='fb-chips'>"
+    + MISFIT_REASONS.map(r => "<button type='button' data-dislike-reason='" + r[0] + "'>" + esc(r[1]) + "</button>").join("")
+    + "</div>";
+  anchor.insertAdjacentElement("afterend", box);
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-dislike-reason]");
+    if (!b) return;
+    e.stopPropagation();
+    const idx = LAST_PATH_IDS.indexOf(songId);
+    logEvent("dislike_reason", {
+      song_id: songId,
+      reason: b.dataset.dislikeReason,
+      position: idx >= 0 ? idx + 1 : null,            // 경로 몇 번째 곡이었나 (추가 곡이면 null)
+      role: idx >= 0 ? "path" : "extra"
+    });
+    box.innerHTML = "<div class='fb-done'>알려줘서 고마워요. 다음 추천에 참고할게요.</div>";
+    setTimeout(() => box.remove(), 2500);
+  });
+}
 function refreshSongActions(songId) {
   const cards = document.querySelectorAll("[data-song-card='" + CSS.escape(songId) + "']");
   if (!cards.length) return;
@@ -1480,6 +1543,7 @@ function updateAfterGate() {
   if (t >= AFTER_UNLOCK_SECONDS) {
     AFTER_UNLOCKED = true;
     slider.disabled = false; if (btn) btn.disabled = false;
+    const extra = $("afterExtra"); if (extra) extra.disabled = false;
     if (gate) gate.textContent = "이제 지금 상태를 남길 수 있어요.";
     logEvent("after_unlock", { listened_seconds: Math.round(t) });
   } else if (gate) {
@@ -1871,7 +1935,9 @@ function setupPlayer(seq) {
       updateAfterGate();
       const songTitle=$("nowPlayingTitle"), artist=$("nowPlayingArtist"); if(songTitle) songTitle.textContent=song?.title||""; if(artist) artist.textContent=song?.artist||"";
       const currentCard=document.querySelector(".current-song-card");
-      if(currentCard && song){ currentCard.setAttribute("data-song-card",song.id); currentCard.querySelectorAll("[data-song-id]").forEach(b=>b.dataset.songId=song.id); }
+      if(currentCard && song){ currentCard.setAttribute("data-song-card",song.id); currentCard.querySelectorAll("[data-song-id]").forEach(b=>b.dataset.songId=song.id);
+        /* 곡이 넘어갔으면 이전 곡의 '싫어요 이유' 줄은 치운다 — 남겨 두면 다른 곡 아래에 붙어 보인다 */
+        currentCard.querySelectorAll(".dislike-why").forEach(el => { if (el.dataset.for !== song.id) el.remove(); }); }
       refreshSongActions(song?.id);
       document.querySelectorAll("[data-jump-song]").forEach(el =>
         el.classList.toggle("playing", !!song && el.dataset.jumpSong === song.id));
@@ -2572,7 +2638,14 @@ function renderResults(list, seq, cur, tgt, poolSize, stepOf) {
         + "<button type='button' id='exportCopy'>목록 복사</button>"
         + "</div><p class='plane-note' id='exportStatus' role='status'></p>"
         + "<div class='export-help'><button type='button' id='exportHelpOpen'>못 찾은 곡이 있다면?</button></div></div>";
-  html += "<div class='after-card' id='afterCard'><h3>듣고 난 뒤</h3><p class='plane-note'>듣기 전과 비교해 지금은 어떤가요?</p><div class='stress-wrap'><input type='range' id='afterChange' min='-2' max='2' step='1' value='0'"+gateAttr+" aria-describedby='afterEcho' aria-label='청취 전 대비 상태 변화'/><div class='stress-labels'><span>더 힘들어짐</span><span>그대로</span><span>한결 편안함</span></div><div id='afterEcho' style='margin-top:10px;font-weight:800'>선택: <b>그대로예요</b></div></div><button id='afterSubmit' class='after-btn'"+gateAttr+">기록하고 나가기</button><p id='afterGate' class='plane-note'>"+gateMsg+"</p><p id='afterThanks' class='plane-note' hidden>기록됐어요. 다음에 더 잘 맞춰볼게요.</p></div></div>";
+  html += "<div class='after-card' id='afterCard'><h3>듣고 난 뒤</h3><p class='plane-note'>듣기 전과 비교해 지금은 어떤가요?</p><div class='stress-wrap'><input type='range' id='afterChange' min='-2' max='2' step='1' value='0'"+gateAttr+" aria-describedby='afterEcho' aria-label='청취 전 대비 상태 변화'/><div class='stress-labels'><span>더 힘들어짐</span><span>그대로</span><span>한결 편안함</span></div><div id='afterEcho' style='margin-top:10px;font-weight:800'>선택: <b>그대로예요</b></div></div>"
+        + "<fieldset class='fb-block' id='afterExtra'"+gateAttr+"><legend>아쉬웠던 점이 있었나요? <span class='fb-hint'>여러 개 골라도 되고, 없으면 건너뛰세요</span></legend>"
+        + "<div class='fb-chips' id='afterReasons'>"
+        + MISFIT_REASONS.map(r => "<button type='button' aria-pressed='false' data-reason='"+r[0]+"'>"+esc(r[1])+"</button>").join("")
+        + "</div><label class='fb-label' for='afterNote' style='display:block;margin-top:14px'>한 줄로 남겨주세요 <span class='fb-hint'>선택</span></label>"
+        + "<textarea id='afterNote' class='fb-note' rows='2' maxlength='"+SESSION_NOTE_MAX+"' placeholder='예: 세 번째 곡에서 갑자기 분위기가 바뀌어서 집중이 깨졌어요'></textarea>"
+        + "<div class='fb-count'><span id='afterNoteCount'>0</span> / "+SESSION_NOTE_MAX+"</div></fieldset>"
+        + "<button id='afterSubmit' class='after-btn'"+gateAttr+">기록하고 나가기</button><p id='afterGate' class='plane-note'>"+gateMsg+"</p><p id='afterThanks' class='plane-note' hidden>기록됐어요. 다음에 더 잘 맞춰볼게요.</p></div></div>";
   box.innerHTML="<div class='scene-inner result-cabin'>"+html+"</div>";
   box.classList.add("scene-active");
   const lt=$("songListToggle");
@@ -2792,14 +2865,28 @@ function setupAfterInput() {
   slider.addEventListener("input", () => {
     $("afterEcho").innerHTML = "선택: <b>" + CHANGE_WORDS[slider.value] + "</b>";
   });
+  const reasonsBox = $("afterReasons"), note = $("afterNote"), extra = $("afterExtra");
+  if (reasonsBox) reasonsBox.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-reason]");
+    if (b) b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true");
+  });
+  if (note) note.addEventListener("input", () => { const c = $("afterNoteCount"); if (c) c.textContent = note.value.length; });
   const ab = $("afterSubmit");
   ab.addEventListener("click", () => {
+    const reasons = reasonsBox
+      ? [...reasonsBox.querySelectorAll("button[aria-pressed='true']")].map(b => b.dataset.reason) : [];
+    const text = note ? note.value.trim().slice(0, SESSION_NOTE_MAX) : "";
     logEvent("post_change", {
       change: Number(slider.value),   // -2 ~ +2
       va_before: LAST_CUR_VA,         // 추천 시점의 지금 좌표 (맥락)
       va_target: LAST_TGT_VA,         // 목표 좌표 (맥락)
-      listened_seconds: Math.round(totalListenedSeconds())   // 이 응답의 근거가 된 실청취량
+      listened_seconds: Math.round(totalListenedSeconds()),  // 이 응답의 근거가 된 실청취량
+      /* 정성 피드백 — 집계 전용. logEvent 는 change 만 개인 점수에 쓰고 아래 둘은 읽지 않는다. */
+      misfit_reasons: reasons,        // MISFIT_REASONS 코드 배열 (없으면 [])
+      note: text || null              // 주관식 원문. 분류는 나중에 일괄로 (tools/classify_notes.mjs)
     });
+    if (extra) extra.disabled = true;
+    slider.disabled = true;
     ab.disabled = true;
     ab.textContent = "기록 완료";
     $("afterThanks").hidden = false;
@@ -2811,7 +2898,14 @@ $("results").addEventListener("click", (e) => {
   const a = e.target.closest ? e.target.closest("a.spotify") : null;
   if (a && a.dataset.songId) logEvent("spotify_click", { song_id: a.dataset.songId });
   const b = e.target.closest ? e.target.closest("[data-action][data-song-id]") : null;
-  if (b && b.dataset.action) setSongFeedback(b.dataset.songId, b.dataset.action);
+  if (b && b.dataset.action) {
+    const id = b.dataset.songId, action = b.dataset.action;
+    const card = b.closest("[data-song-card]");
+    Promise.resolve(setSongFeedback(id, action)).then(() => {
+      if (action === "dislike" && DISLIKED_SONGS.has(id)) showDislikeReasons(card, id);   // 방금 싫어요가 '켜진' 경우만
+      else if (action === "dislike" || action === "like") hideDislikeReasons(id);          // 취소했거나 좋아요로 바꿈
+    });
+  }
 });
 $("myAztBtn").addEventListener("click", openMyAzt);
 $("closeMyAzt").addEventListener("click", () => { $("myAzt").hidden = true; goScene("ground"); });
