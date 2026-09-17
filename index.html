@@ -840,17 +840,18 @@ let SONGS = [];
       '어느 버튼에도 안 잡힌 표기'가 나온다 — 그 목록을 보고 규칙을 보완할 것. */
 const GENRE_RULES = {
   "K-pop":   /k-?pop|케이팝|k-?팝|^k-/i,              // "K-발라드"·"K-힙합"처럼 K- 로 시작하면 한국 대중음악으로 본다
+  "J-pop":   /j-?pop|제이팝|j-?팝|보컬로이드|vocaloid|시부야계|가요쿄쿠|엔카|비주얼계/i,   // 2026-09-18 추가 — 234곡, 팝(17곡)과 분리
   "발라드":   /ballad|발라드/i,
   "힙합":     /hip[ -]?hop|\brap\b|힙합|랩/i,
   "R&B":     /r&b|rnb|r ?n ?b|\bsoul\b|알앤비|소울/i,
   "인디":     /indie|인디/i,
-  "록":       /\brock\b|\bpunk\b|\bmetal\b|록|락|메탈|밴드/i,
-  "팝":       /(^|[^a-z-])pop\b|(^|[^가-힣-])팝$|^팝/i,  // K-팝·J-팝·시티팝은 아래 제외 규칙으로 뺀다
-  "재즈":     /jazz|bossa|재즈|보사/i,
-  "클래식":   /classical|orchestra|클래식|오케스트라/i,
+  "록":       /\brock\b|\bpunk\b|\bmetal\b|록|락|메탈|밴드|노이즈 음악|슈게이징|브릿팝|매드체스터|슬로우코어|indorock/i,
+  "팝":       /(^|[^a-z-])pop\b|(^|[^가-힣-])팝$|^팝|하이퍼팝|만도팝|mandopop|차이나팝|칸토팝|cantopop|아프로팝/i,  // K-팝·J-팝·시티팝은 아래 제외 규칙으로 뺀다
+  "재즈":     /jazz|bossa|재즈|보사|하드 밥|비밥/i,
+  "클래식":   /classical|orchestra|클래식|오케스트라|인상주의|신고전주의|체임버|협주곡|오페라|바로크|미니멀리즘|르네상스/i,
   "lo-fi":   /lo-?fi|chillhop|로파이/i,
-  "EDM":     /\bedm\b|electro|house|techno|trance|dubstep|\bdance\b|일렉|댄스/i,
-  "OST":     /\bost\b|soundtrack|사운드트랙|드라마|영화|애니/i,
+  "EDM":     /\bedm\b|electro|house|techno|trance|dubstep|\bdance\b|일렉|댄스|하우스|빅 ?룸|budots|베이스|덥스텝|바운스|저지 클럽|하이에너지|디스코|amapiano|아프로피아노|gqom|하이피/i,
+  "OST":     /\bost\b|soundtrack|사운드트랙|드라마|영화|애니|스코어/i,
   "시티팝":   /city ?pop|시티 ?팝/i,
   "뉴에이지": /new ?age|ambient|뉴에이지|앰비언트/i,
 };
@@ -909,7 +910,7 @@ function toGenreLabelsQuiet(raw) {        // 진단용: UNMAPPED 집계를 건�
   }
   return out;
 }
-const GENRE_OPTIONS = ["K-pop","발라드","힙합","R&B","인디","록","팝","재즈","클래식","lo-fi","EDM","OST","시티팝","뉴에이지"];
+const GENRE_OPTIONS = ["K-pop","J-pop","발라드","힙합","R&B","인디","록","팝","재즈","클래식","lo-fi","EDM","OST","시티팝","뉴에이지"];
 let SELECTED_GENRES = [];
 let RECOMMEND_MINUTES = 30;
 /* 감정 여정 속도: null=자동(시간별 기본 정책), fast=목표 중심, slow=펼침.
