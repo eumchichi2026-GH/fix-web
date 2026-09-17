@@ -704,6 +704,9 @@ const firebaseConfig = {
 const TAG_KEYS = ["instrumental","spokenness","tempo"];
 
 const TOP_K = 5;
+/* '들어본 곡'의 기준. 좋아요 버튼이 열리는 조건과 같다 — 개인화는 "좋아요를 누를 수 있었던 곡 중
+   실제로 좋아요한 비율"을 세므로, 두 기준이 같아야 분모가 맞는다. */
+const HEARD_MIN_SECONDS = 10;
 const AFTER_UNLOCK_SECONDS = 60;   // 이만큼 실제로 들어야 청취 후 변화 기록이 열린다
 
 /* ── v2.1 엔진 ──────────────────────────────────────────────────
@@ -748,8 +751,8 @@ async function loadEngine() {
   } else {
     /* ?v= : 이미 설치된 옛 서비스워커(azt-v6)는 이 두 파일을 캐시에서 먼저 돌려준다.
        주소를 바꿔 그 캐시를 비켜 간다. 새 서비스워커(v7)부터는 network-first 라 값은 안 올려도 된다. */
-    AZT_ENGINE = await import("./engine/engine.js?v=220");
-    const res = await fetch("./rules/rules.compiled.json?v=220", { cache: "no-cache" });
+    AZT_ENGINE = await import("./engine/engine.js?v=230");
+    const res = await fetch("./rules/rules.compiled.json?v=230", { cache: "no-cache" });
     if (!res.ok) throw new Error("rules.compiled.json HTTP " + res.status);
     AZT_RULES = await res.json();
   }
@@ -962,8 +965,31 @@ let PERSONAL_FB_N = {};    // song_id → 피드백 관측 건수 (R1 신뢰도 
 let PERSONAL_FB_W  = {};   // song_id → Σ|v|
 let PERSONAL_FB_WD = {};   // song_id → Σ|v|·경과일
 let STATE_DAYS = {};       // song_id → 가장 최근 좋아요·벽 붙이기 이후 경과일 (users 문서엔 시각이 없어 이벤트 로그에서 회수)
+let HEARD = {};            // song_id → 마지막으로 들은 뒤 경과일 (HEARD_MIN_SECONDS 이상 들은 곡만)
+let DISLIKE_REASONS = {};  // song_id → 싫어요 이유 코드 (MISFIT_REASONS). 싫어요를 어느 묶음까지 넓힐지 정한다
+let FEATURE_BINNER = null; // 곡 → 특징 묶음. 전체 카탈로그로 한 번만 만든다
 function resetPersonalFeedback() {
   PERSONAL_FB = {}; PERSONAL_FB_N = {}; PERSONAL_FB_W = {}; PERSONAL_FB_WD = {}; STATE_DAYS = {};
+  HEARD = {}; DISLIKE_REASONS = {};
+}
+function noteHeard(id, days) {
+  if (!id) return;
+  const d = Math.max(0, Number(days) || 0);
+  if (!(id in HEARD) || d < HEARD[id]) HEARD[id] = d;
+}
+/* 들어본 곡 기록 회수 — users/{uid}/listeningHistory (본인 문서). 로그인 사용자만, 최근 200건.
+   이 기기에서 들은 것은 LISTEN_HISTORY(로컬)에도 있지만, 다른 기기·브라우저에서 들은 것은 여기서만 온다. */
+async function loadHeardHistory(uid) {
+  try {
+    const snap = await firebase.firestore().collection("users").doc(uid).collection("listeningHistory")
+      .orderBy("created_at", "desc").limit(200).get();
+    snap.forEach(d => {
+      const r = d.data();
+      if (Number(r.listenedSeconds) >= HEARD_MIN_SECONDS) noteHeard(r.songId, daysSince(r.created_at));
+    });
+  } catch (e) {
+    console.warn("청취 기록 로드 실패(이 기기의 기록만으로 개인화합니다):", e);
+  }
 }
 function addPersonalSignal(id, v, days) {
   PERSONAL_FB[id]   = (PERSONAL_FB[id]   || 0) + v;
@@ -1164,6 +1190,7 @@ async function handleUserChange(user, force) {
   }
   updateAuthUI(user);
   loadPersonalFeedback(user.uid);   // 비동기 — 실패해도 앱 동작에는 영향 없음
+  loadHeardHistory(user.uid);       // 비동기 — 개인화의 분모(들어본 곡)
   if (typeof renderMyAzt === "function") renderMyAzt();   // 내 방이 열려 있으면 게스트↔개인 화면 즉시 전환
   if (typeof applyMemberGate === "function") applyMemberGate();   // 로그인/로그아웃 즉시 곡 액션 버튼 상태 반영
 }
@@ -1464,7 +1491,7 @@ function refreshSongActions(songId) {
   const cards = document.querySelectorAll("[data-song-card='" + CSS.escape(songId) + "']");
   if (!cards.length) return;
   const metric = TRACK_METRICS[songId];
-  const ready = !!(metric && metric.listenedSeconds >= 10);
+  const ready = !!(metric && metric.listenedSeconds >= HEARD_MIN_SECONDS);
   cards.forEach(card => {
     const like = card.querySelector("[data-action='like']");
     const dislike = card.querySelector("[data-action='dislike']");
@@ -1648,8 +1675,11 @@ async function loadPersonalFeedback(uid) {
       const sid = e.payload && e.payload.song_id;
       if (e.type === "track_complete" && sid) addPersonalSignal(sid, 0.3, days);
       else if (e.type === "spotify_click" && sid) addPersonalSignal(sid, 0.15, days);
-      else if ((e.type === "like" || e.type === "playlist_add") && sid) {
+      else if ((e.type === "like" || e.type === "playlist_add" || e.type === "dislike") && sid) {
         STATE_DAYS[sid] = (sid in STATE_DAYS) ? Math.min(STATE_DAYS[sid], days) : days;   // 가장 최근 것
+      }
+      else if (e.type === "dislike_reason" && sid && e.payload.reason) {
+        if (!(sid in DISLIKE_REASONS)) DISLIKE_REASONS[sid] = e.payload.reason;          // 최신순 조회 → 처음 만난 것이 최신
       }
       else if (e.type === "post_change" && e.rec_id && recSongs[e.rec_id]) {
         const c = (e.payload && typeof e.payload.change === "number") ? e.payload.change : 0;  // -2 ~ +2
@@ -1723,7 +1753,26 @@ function toContractSong(s) {
     genres: Array.isArray(s.genres) ? s.genres : [],
     popularity: Number(s.popularity || 0),
     duration_ms: Math.round((Number(s.durationSec) || 210) * 1000),
+    tempo: songTempo01(s),
   };
+}
+/* 빠르기 0~1. 파이프라인 v2 태그(tempo)가 기준이고, 없으면 BPM 을 같은 식(50~200 → 0~1)으로 환산. 둘 다 없으면 null. */
+function songTempo01(s) {
+  const t = s.tags || {};
+  if (typeof t.tempo === "number") return Math.min(1, Math.max(0, t.tempo));
+  if (typeof s.tempo === "number" && s.tempo > 0) return Math.min(1, Math.max(0, (s.tempo - 50) / 150));
+  return null;
+}
+/* 곡 → 계약 스키마 + 특징 묶음. 묶음 경계는 **전체 카탈로그**로 한 번만 계산한다
+   (장르·가사 조건으로 걸러낸 풀로 만들면 조건마다 경계가 달라져 같은 좋아요가 다른 묶음에 들어간다). */
+function contractWithBins(s) {
+  if (!FEATURE_BINNER && AZT_ENGINE && AZT_ENGINE.makeFeatureBinner && AZT_RULES && SONGS.length) {
+    FEATURE_BINNER = AZT_ENGINE.makeFeatureBinner(SONGS.map(toContractSong), AZT_RULES);
+    console.info("[AZT] 특징 묶음 경계(3분위)", JSON.stringify(FEATURE_BINNER.cuts));
+  }
+  const c = toContractSong(s);
+  c.feature_bins = FEATURE_BINNER ? FEATURE_BINNER(c) : {};
+  return c;
 }
 
 /* 앱의 신호(부호 있는 점수)를 엔진이 기대하는 pos/neg 로 변환.
@@ -1739,31 +1788,65 @@ function splitSignal(score, n) {
   return { pos: cnt * ratio, neg: cnt * (1 - ratio) };
 }
 
-function buildUserProfile() {
-  const song_feedback = {}, global_stats = {}, artist_affinity = {}, genre_affinity = {};
+/* 개인화 입력: "내가 들어본 곡" 한 곡당 하나. 엔진(aggregateAffinity)이 가수·특징 묶음별로
+   '들어본 곡 중 좋아요한 곡'을 센다. 여기서는 사실만 모으고 계산은 하지 않는다. */
+function buildHeardItems() {
+  const fav = new Set((USER_PROFILE && USER_PROFILE.favorite_tracks) || []);   // 온보딩에서 고른 선호곡 = 좋아요와 같은 뜻
+  const days = {};
+  const see = (id, d) => { if (id && (!(id in days) || d < days[id])) days[id] = d; };
+  for (const [id, d] of Object.entries(HEARD)) see(id, d);
+  for (const r of LISTEN_HISTORY) if (Number(r.listenedSeconds) >= HEARD_MIN_SECONDS)
+    see(r.songId, r.at ? Math.max(0, (Date.now() - Date.parse(r.at)) / 86400000) : 0);
+  for (const [id, m] of Object.entries(TRACK_METRICS)) if (m && m.listenedSeconds >= HEARD_MIN_SECONDS) see(id, 0);
+  /* 좋아요·싫어요·선호곡은 청취 기록이 없어도(다른 기기, 기록 유실) 들어본 곡으로 친다 — 들어봤으니 의견이 있다 */
+  for (const id of LIKED_SONGS) see(id, STATE_DAYS[id] || 0);
+  for (const id of DISLIKED_SONGS) see(id, STATE_DAYS[id] || 0);
+  for (const id of fav) see(id, 0);
 
+  const items = [];
+  for (const [id, d] of Object.entries(days)) {
+    const song = songById(id);
+    if (!song) continue;
+    const c = contractWithBins(song);
+    items.push({ song_id: id, liked: LIKED_SONGS.has(id) || fav.has(id), disliked: DISLIKED_SONGS.has(id),
+                 reason: DISLIKE_REASONS[id] || null, artist: c.artist, genres: c.genres, feature_bins: c.feature_bins, days: d });
+  }
+  /* 온보딩에서 적은 선호 가수·장르: 곡 없이 '그 묶음에 좋아요 1건'. 좋아요 한 번과 같은 무게로 둔다. */
+  for (const a of ((USER_PROFILE && USER_PROFILE.preferred_artists) || [])) if (a) items.push({ liked: true, artist: a, days: 0 });
+  for (const g of ((USER_PROFILE && USER_PROFILE.preferred_genres) || [])) if (g) items.push({ liked: true, genres: [g], days: 0 });
+  return items;
+}
+let LAST_PERSONAL_SNAPSHOT = null;   // 추천 로그에 남기는 개인화 상태 요약
+
+function buildUserProfile() {
+  const song_feedback = {}, global_stats = {};
+  for (const id of Object.keys(GLOBAL_FB || {})) global_stats[id] = splitSignal(GLOBAL_FB[id], 10);
+  const base = { disliked: [...DISLIKED_SONGS], recent_played: recentlyPlayedIds(), global_stats };
+
+  if (AZT_RULES.preference.combine !== "weighted" && AZT_ENGINE.aggregateAffinity) {
+    const items = isMember() ? buildHeardItems() : [];   // 개인화는 로그인 사용자 기록만 (9/17 결정)
+    const agg = AZT_ENGINE.aggregateAffinity(items, AZT_RULES);
+    const b = agg.like_base, n = b.pos + b.neg;
+    LAST_PERSONAL_SNAPSHOT = { mode: AZT_RULES.preference.combine, heard: n, liked: b.pos,
+                               like_rate: n ? Number(((b.pos + 1) / (n + 2)).toFixed(4)) : null };
+    return { ...base, ...agg };
+  }
+
+  /* ── 이전 방식(가중합) — preference.combine = "weighted" 일 때만. 비교 실험용으로 남겨 둔다 ── */
+  const artist_affinity = {}, genre_affinity = {};
   for (const id of Object.keys(PERSONAL_FB || {})) {
     song_feedback[id] = { ...splitSignal(PERSONAL_FB[id], PERSONAL_FB_N[id]), last_days: feedbackAgeDays(id) };
   }
-  /* R6: last_days 가 전부 0 이면 0.5^(0/14)=1 이라 반감기가 사실상 무한대다(규칙은 있는데 입력이 죽어 있던 상태).
-     좋아요·벽 붙이기 시각은 이벤트 로그에서 회수하고, 로그에서 못 찾으면 0(감쇠 없음)으로 둔다. */
   for (const id of LIKED_SONGS)     song_feedback[id] = { pos: 3, neg: 0, last_days: STATE_DAYS[id] || 0 };
   for (const id of PLAYLIST_SONGS)  song_feedback[id] = song_feedback[id] || { pos: 2, neg: 0, last_days: STATE_DAYS[id] || 0 };
-  for (const id of Object.keys(GLOBAL_FB || {})) {
-    global_stats[id] = splitSignal(GLOBAL_FB[id], 10);
-  }
   for (const a of ((USER_PROFILE && USER_PROFILE.preferred_artists) || [])) {
     if (a) artist_affinity[a] = { pos: 5, neg: 0, last_days: 0 };
   }
   for (const g of ((USER_PROFILE && USER_PROFILE.preferred_genres) || [])) {
     if (g) genre_affinity[g] = { pos: 5, neg: 0, last_days: 0 };
   }
-
-  return {
-    disliked: [...DISLIKED_SONGS],
-    recent_played: recentlyPlayedIds(),   // 세션 간 반복을 막는 유일한 확정 장치
-    song_feedback, global_stats, artist_affinity, genre_affinity,
-  };
+  LAST_PERSONAL_SNAPSHOT = { mode: "weighted" };
+  return { ...base, song_feedback, artist_affinity, genre_affinity };
 }
 
 /* 최근 재생 곡 — localStorage 에 누적. 시드 변이만으로는 반복을 못 막습니다.
@@ -1830,6 +1913,9 @@ async function logRecommendation(input, seq, extras) {
                               fit: s._trace ? s._trace.va_distance : null,
                               band_size: s._trace ? s._trace.band_size : null,
                               chosen_by: s._trace ? s._trace.chosen_by : null,
+                              pref_score: s._trace ? s._trace.pref_score : null,     // 내 좋아요 비율 기준 점수
+                              pref_match: s._trace ? !!s._trace.pref_match : null,   // '내가 좋아요한 곡들과 닮음'으로 골랐나
+                              pref_basis: s._trace ? (s._trace.pref_basis || null) : null,
                               quadrant: s._trace ? s._trace.quadrant : null })),
       ...extras.map((s, i) => ({ song_id: s.id, position: seq.length + i + 1, role: "extra" }))
     ];
@@ -1845,6 +1931,7 @@ async function logRecommendation(input, seq, extras) {
         current_va: LAST_CUR_VA,   // 사용자가 좌표에 직접 탭한 지금 상태
         target_va: LAST_TGT_VA,    // 사용자가 좌표에 직접 탭한 목표 상태
         input_mode: { current: CUR_MODE, target: TGT_MODE },   // 점별 입력 방식: tap | chip | nl
+        personalization: LAST_PERSONAL_SNAPSHOT,   // { mode, heard(들어본 곡), liked, like_rate(내 평균 좋아요 비율) } — 개인화 효과 분석용
         pace_mode: PACE_MODE || "auto",   // 감정 여정 속도: auto | fast | slow — 경로 재현·분석용
         nl_text: LAST_NL_TEXT,     // 자연어 원문 (해석 품질 감사용, 미사용 시 null)
         nl_model: LAST_NL_TEXT ? GEMINI_MODEL : null   // 어떤 모델이 해석했는지
@@ -1862,7 +1949,9 @@ async function logEvent(type, payload) {
      다음 추천부터 바로 반영된다. */
   const inc = firebase.firestore.FieldValue.increment;
   const addLocal = (id, v) => addPersonalSignal(id, v, 0);   // 방금 일어난 일 → 경과일 0
-  if ((type === "like" || type === "playlist_add") && payload.song_id) STATE_DAYS[payload.song_id] = 0;
+  if ((type === "like" || type === "playlist_add" || type === "dislike") && payload.song_id) STATE_DAYS[payload.song_id] = 0;
+  if (type === "dislike" && payload.song_id) delete DISLIKE_REASONS[payload.song_id];   // 새로 누른 싫어요 — 이전 이유는 버린다
+  if (type === "dislike_reason" && payload.song_id) DISLIKE_REASONS[payload.song_id] = payload.reason;
   if (type === "spotify_click" && payload.song_id) {
     bumpStats(payload.song_id, { clicks: inc(1) });
     addLocal(payload.song_id, 0.15);
@@ -2516,7 +2605,7 @@ async function recommend() {
      둘을 한 점수로 더하지 않는 것이 v1 과의 결정적 차이입니다. */
   const cur = CUR_VA, tgt = TGT_VA;
   const byId = new Map(pool.map(s => [s.id, s]));
-  const contract = pool.map(toContractSong);
+  const contract = pool.map(contractWithBins);
 
   const gates = [];
   if (lyric === "instrumental_only") gates.push("instrumental_only");
@@ -2613,7 +2702,7 @@ function renderResults(list, seq, cur, tgt, poolSize, stepOf) {
     /* v2.1: 근거는 태그 막대가 아니라 엔진이 실제로 쓴 값(trace)에서 나온다.
        점수에 안 쓰인 값으로는 설명을 만들 수 없다 — v1 실패 #5 차단. */
     const reasons = (s._why || []);
-    const metric=TRACK_METRICS[s.id], ready=!!(metric&&metric.listenedSeconds>=10);
+    const metric=TRACK_METRICS[s.id], ready=!!(metric&&metric.listenedSeconds>=HEARD_MIN_SECONDS);
     const jumpable = playable.some(p => p.id === s.id);   // 재생 큐에 있는 곡은 눌러서 바로 이동
     html += "<article class='song"+(jumpable?" in-queue":"")+"' data-song-card='"+esc(s.id)+"'"+(jumpable?" data-jump-song='"+esc(s.id)+"' role='button' tabindex='0' aria-label='"+esc(s.title)+" 재생으로 이동'":"")+"><div class='top'><div>"+(stepOf[s.id]?"<span class='step'>"+stepOf[s.id]+"</span>":"")+"<span class='title'>"+esc(s.title)+"</span> <span class='artist'>"+esc(s.artist)+"</span></div><span class='score'>"+esc(s._trace&&s._trace.quadrant?s._trace.quadrant:"")+"</span></div><div class='reasons'>";
     for(const r of reasons) html += "<div class='reason'><span>"+esc(r)+"</span></div>";
