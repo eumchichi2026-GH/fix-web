@@ -837,26 +837,33 @@ let SONGS = [];
    그래서 곡을 불러올 때 한 번, 데이터 표기 → 화면 장르 이름으로 바꿔 둔다(GENRE_RULES).
    이후 필터·엔진·개인화(장르 묶음)는 전부 '화면 장르 이름' 하나만 쓴다.
    ⚠️ 아래 규칙은 실제 표기 목록을 다 보기 전에 만든 것이다. 콘솔에서 AZT_DEBUG.catalogReport() 를 실행하면
-      '어느 버튼에도 안 잡힌 표기'가 나온다 — 그 목록을 보고 규칙을 보완할 것. */
+      '어느 버튼에도 안 잡힌 표기'가 나온다 — 그 목록을 보고 규칙을 보완할 것.
+
+   2026-09-20 보완: 곡이 4,117곡으로 늘면서 새 장르 표기가 들어와 **48곡(그중 46곡이 새 곡)이 어느 버튼에도
+   안 걸렸다** — 컨트리·라틴·레게·크리스마스·뉴 웨이브/이모/그런지·스윙·포크 계열. 배포본(eumchichi-web
+   dfdce93)과 같은 판단으로 각 줄 끝에 표기를 더했다. 판단이 갈리는 매핑: 컨트리(`"국가"` 는 Spotify 의
+   country 오역)·라틴·레게·크리스마스 → `팝`(해당 버튼이 없어 가장 가까운 쪽), 펑크(Funk) → `EDM`.
+   `"스윙"` 이 아니라 `"스윙 음악"` 인 이유는 `"아프로스윙"` 이 재즈로 끌려오지 않게 하려는 것. */
 const GENRE_RULES = {
   "K-pop":   /k-?pop|케이팝|k-?팝|^k-/i,              // "K-발라드"·"K-힙합"처럼 K- 로 시작하면 한국 대중음악으로 본다
   "J-pop":   /j-?pop|제이팝|j-?팝|보컬로이드|vocaloid|시부야계|가요쿄쿠|엔카|비주얼계/i,   // 2026-09-18 추가 — 234곡, 팝(17곡)과 분리
   "발라드":   /ballad|발라드/i,
   "힙합":     /hip[ -]?hop|\brap\b|힙합|랩/i,
   "R&B":     /r&b|rnb|r ?n ?b|\bsoul\b|알앤비|소울/i,
-  "인디":     /indie|인디/i,
-  "록":       /\brock\b|\bpunk\b|\bmetal\b|록|락|메탈|밴드|노이즈 음악|슈게이징|브릿팝|매드체스터|슬로우코어|indorock/i,
-  "팝":       /(^|[^a-z-])pop\b|(^|[^가-힣-])팝$|^팝|하이퍼팝|만도팝|mandopop|차이나팝|칸토팝|cantopop|아프로팝/i,  // K-팝·J-팝·시티팝은 아래 제외 규칙으로 뺀다
-  "재즈":     /jazz|bossa|재즈|보사|하드 밥|비밥/i,
+  "인디":     /indie|인디|싱어송라이터|포크/i,
+  "록":       /\brock\b|\bpunk\b|\bmetal\b|록|락|메탈|밴드|노이즈 음악|슈게이징|브릿팝|매드체스터|슬로우코어|indorock|뉴 웨이브|뉴 레이브|라이엇 걸|퀴어코어|\bemo\b|그런지|하드코어/i,
+  "팝":       /(^|[^a-z-])pop\b|(^|[^가-힣-])팝$|^팝|하이퍼팝|만도팝|mandopop|차이나팝|칸토팝|cantopop|아프로팝|아프로비트|아프로스윙|국가|컨트리|라틴|latino|레게|son cubano|팀바|크리스마스|두왑|프리스타일/i,  // K-팝·J-팝·시티팝은 아래 제외 규칙으로 뺀다
+  "재즈":     /jazz|bossa|재즈|보사|하드 밥|비밥|빅 ?밴드|스윙 음악|어덜트 스탠다드/i,
   "클래식":   /classical|orchestra|클래식|오케스트라|인상주의|신고전주의|체임버|협주곡|오페라|바로크|미니멀리즘|르네상스/i,
   "lo-fi":   /lo-?fi|chillhop|로파이/i,
-  "EDM":     /\bedm\b|electro|house|techno|trance|dubstep|\bdance\b|일렉|댄스|하우스|빅 ?룸|budots|베이스|덥스텝|바운스|저지 클럽|하이에너지|디스코|amapiano|아프로피아노|gqom|하이피/i,
+  "EDM":     /\bedm\b|electro|house|techno|trance|dubstep|\bdance\b|일렉|댄스|하우스|빅 ?룸|budots|베이스|덥스텝|바운스|저지 클럽|하이에너지|디스코|amapiano|아프로피아노|gqom|하이피|펑크\(funk\)|펑키|카리오카|빅 ?비트/i,
   "OST":     /\bost\b|soundtrack|사운드트랙|드라마|영화|애니|스코어/i,
   "시티팝":   /city ?pop|시티 ?팝/i,
-  "뉴에이지": /new ?age|ambient|뉴에이지|앰비언트/i,
+  "뉴에이지": /new ?age|ambient|뉴에이지|앰비언트|이지 리스닝|네이티브 아메리칸|중국 고풍|private school piano/i,
 };
 const GENRE_RULE_EXCLUDE = { "팝": /k-?pop|j-?pop|c-?pop|k-?팝|j-?팝|케이팝|제이팝|city ?pop|시티 ?팝/i,
-                             "EDM": /^k-댄스$/i };
+                             "EDM": /^k-댄스$/i,
+                             "록": /빅 ?밴드/i };      // "밴드" 가 빅 밴드(재즈)까지 록으로 끌고 오지 않게
 function readRawGenres(d, pr) {           // genre / genres — 배열이든 문자열이든 받아서 평평하게
   const out = [];
   const take = (v) => {
