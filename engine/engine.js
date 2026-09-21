@@ -5,7 +5,7 @@
  * (Python 검증기 engine.py 는 현재 저장소에 없습니다. 복구되면 이 파일과 같은 결과를 내야 합니다.)
  *
  *   1) 좌표 변환   원 V/A → 퍼센타일 좌표
- *   2) 하드 제약   게이트 / 싫어요 / 최근재생 / 아티스트 상한 / 걸음 상한 / 장르
+ *   2) 하드 제약   게이트 / 싫어요 / 최근재생 / 아티스트 상한 / 장르
  *   3) 영역 후보   waypoint 이웃 반경 (사분면 박스 아님)
  *   4) 두 레인     기하가 어디로 갈지, 선호가 동급 중 무엇을
  *   5) 빔 탐색     경로 전체 비용 최소화
@@ -14,25 +14,16 @@
 /* 엔진 코드 버전. 규칙(rules_hash)은 그대로인데 엔진 동작이 바뀌는 경우를 로그에서 구분한다.
    2.2.0 (2026-09-17): iso.min_step_span 구현, 영역 풀 걸음당 1회 계산, song_count 출력.
    2.3.0 (2026-09-17): 개인화 재배선 — '들어본 곡 중 좋아요한 비율'을 가수·곡 특징 단위로 집계(aggregateAffinity),
-                       선호 결합 방식 preference.combine = "mean_like_rate". */
-export const ENGINE_VERSION = "2.3.1";
+                       선호 결합 방식 preference.combine = "mean_like_rate".
+   2.4.0 (2026-09-21): (1) 스트레스 연동 최대 보폭 제약 제거 — inputs.stress·modulators.stress_step_limit·iso.max_step_jump·
+                       iso.step_limit_scale·후보 제외 필터·완화 폴백. 실카탈로그 4,117곡 600 시나리오에서 발동 0.01회/세션, 제거해도 지표 동일.
+                       (2) path.fit_weight 제거 — 균등 배율이라 결과 무관.
+                       (3) 전환 비용(transition cost) 추가 — cost += path.jump_weight × 인접 곡 거리. λ=0.1 에서 최대 전환 거리 −13%.
+                       근거: 2026-09-21 민감도 분석(파라미터 9개, one-at-a-time). */
+export const ENGINE_VERSION = "2.4.0";
 
 const R9 = (x) => Math.round(x * 1e9) / 1e9;
 const R6 = (x) => Math.round(x * 1e6) / 1e6;
-
-/* ── 가수 키 (2.3.1) ─────────────────────────────────────
-   카탈로그의 artist 는 여러 명일 때 "A;B;C" 한 문자열이다. 이걸 통째로 키로 쓰면
-   협업곡은 'A;B;C 라는 가수'의 곡이 되어 (1) A 를 좋아해도 이 곡에 반영되지 않고
-   (2) '같은 가수 최대 N곡' 상한도 피해 간다. 그래서 가수 한 명 단위로 쪼개서 센다.
-   키는 대소문자·공백 차이를 없앤 값 — 화면 표기와 사용자가 적은 표기를 같은 가수로 맞추기 위해서다. */
-export function artistKey(name) {
-  return String(name ?? "").trim().toLowerCase().replace(/\s+/g, "");
-}
-export function artistKeys(artist) {
-  const seen = new Set();
-  for (const part of String(artist ?? "").split(";")) { const k = artistKey(part); if (k) seen.add(k); }
-  return [...seen];
-}
 
 function bisectLeft(a, x) {
   let lo = 0, hi = a.length;
@@ -141,19 +132,17 @@ function passesGate(song, g, th) {
 }
 
 function applyModulators(rules, inputs) {
-  let maxStep = Number(rules.iso.max_step_jump);
+  /* 2.4.0: 게이트 추가형 모듈레이터만 남는다. 스트레스→걸음 상한(max_step_jump) 사슬은
+     후보가 이미 경유지 반경 안에서만 나오므로 결과를 바꾸지 않아 제거했다. */
   const active = [];
   for (const m of rules.modulators || []) {
     const val = inputs[m.input];
     if (val === undefined || val === null) continue;
-    if (m.applies_to === "iso.max_step_jump" && m.map) {
-      const key = String(Math.trunc(Number(val)));
-      if (key in m.map) maxStep = Number(m.map[key]);
-    } else if (m.applies_to === "gates" && m.when_gte !== undefined) {
+    if (m.applies_to === "gates" && m.when_gte !== undefined) {
       if (Number(val) >= Number(m.when_gte)) active.push(m.adds_gate);
     }
   }
-  return { maxStep, active };
+  return { active };
 }
 
 // ── 선호 레인 ───────────────────────────────────────────
@@ -237,7 +226,7 @@ export function aggregateAffinity(items, rules) {
     const has = (x) => scope.includes(x);
     if (has("base")) { if (liked) out.like_base.pos += 1; else out.like_base.neg += 1; }
     if (has("song") && it.song_id) vote(out.song_likes, it.song_id, liked, it.days);
-    if (has("artist")) for (const a of artistKeys(it.artist)) vote(out.artist_affinity, a, liked, it.days);
+    if (has("artist") && it.artist) vote(out.artist_affinity, it.artist, liked, it.days);
     if (has("genre")) for (const g of it.genres || []) vote(out.genre_affinity, g, liked, it.days);
     for (const id of featIds) {
       const b = it.feature_bins && it.feature_bins[id];
@@ -282,14 +271,7 @@ function prefDetail(song, rules, user) {
       basis.push({ id, score: v });
     };
     rate("song", (user.song_likes || {})[song.song_id]);
-    /* 가수가 여러 명인 곡은 장르와 같은 방식 — 기록이 있는 가수 중 내 좋아요 비율이 가장 높은 가수를 쓴다 */
-    const aks = artistKeys(song.artist);
-    if (aks.length) {
-      const aa = user.artist_affinity || {};
-      const recs = aks.map((a) => aa[a]).filter(Boolean);
-      const best = recs.length ? recs.reduce((a, b) => (shrunk(b.pos, b.neg, pk, decayOf(b), p0) > shrunk(a.pos, a.neg, pk, decayOf(a), p0) ? b : a)) : null;
-      rate("artist", best);
-    }
+    if (song.artist) rate("artist", (user.artist_affinity || {})[song.artist]);
     if ((song.genres || []).length) {
       const ga = user.genre_affinity || {};
       const recs = song.genres.map((g) => ga[g]).filter(Boolean);
@@ -307,8 +289,7 @@ function prefDetail(song, rules, user) {
   /* 이전 방식(가중합) — 비교 실험용. preference.combine 을 "weighted" 로 두면 이 경로. */
   const w = p.weights;
   const sf = (user.song_feedback || {})[song.song_id];
-  const af = artistKeys(song.artist).map((a) => (user.artist_affinity || {})[a]).filter(Boolean)
-    .sort((a, b) => shrunk(b.pos || 0, b.neg || 0, pk, decayOf(b)) - shrunk(a.pos || 0, a.neg || 0, pk, decayOf(a)))[0];
+  const af = (user.artist_affinity || {})[song.artist];
   const ga = user.genre_affinity || {};
   const hits = (song.genres || []).filter((g) => g in ga).map((g) => shrunk(ga[g].pos || 0, ga[g].neg || 0, pk, decayOf(ga[g])));
   const personal = sf ? shrunk(sf.pos || 0, sf.neg || 0, pk, decayOf(sf)) : 0.5;
@@ -397,12 +378,7 @@ function waypoints(nowC, tgtC, n, at) {
 }
 
 // ── 탐색 ────────────────────────────────────────────────
-/* 같은 가수 상한: 곡에 참여한 가수 중 한 명이라도 상한에 닿았으면 제외 (피처링으로 상한을 피해 가지 못하게) */
-function artistCapped(s, state, cap) {
-  for (const a of artistKeys(s.artist)) if ((state.artistCount[a] || 0) >= cap) return true;
-  return false;
-}
-function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, maxStep, band, nExpand,
+function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, band, nExpand,
                        stepI = 0, seed = null, pbucket = 0) {
   /* pool = 이 걸음의 영역 후보. 같은 걸음의 빔 상태들은 경유지가 같아 영역 풀도 같으므로
      recommend() 가 걸음당 1회만 계산해 넘긴다 (결과 동일, 속도만 개선). */
@@ -411,17 +387,11 @@ function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, maxStep
   let cands = [];
   for (const s of pool) {
     if (state.used.includes(s.song_id)) continue;
-    if (artistCapped(s, state, cap)) continue;
-    const c = ctx.coords.get(s.song_id);
-    if (state.prev && dist(c, state.prev, term) > maxStep) continue;
+    if ((state.artistCount[s.artist] || 0) >= cap) continue;
     cands.push(s);
   }
-  let relaxed = false;
-  if (!cands.length) {   // 걸음 상한 완화. 반드시 기록에 남긴다.
-    relaxed = true;
-    cands = pool.filter((s) => !state.used.includes(s.song_id) && !artistCapped(s, state, cap));
-  }
-  if (!cands.length) return { cands: [], bandSize: 0, relaxed: false };
+  const relaxed = false;   // 걸음 상한이 없어졌으므로 항상 false. trace 호환용으로 한 버전 유지 후 제거 예정.
+  if (!cands.length) return { cands: [], bandSize: 0, relaxed };
 
   const scored = cands.map((s) => {
     const c = ctx.coords.get(s.song_id);
@@ -429,10 +399,11 @@ function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, maxStep
     const prog = state.prev
       ? R9(Math.max(0, dist(c, tgtC, term) - dist(state.prev, tgtC, term)))
       : 0;
+    const jump = state.prev ? R9(dist(c, state.prev, term)) : 0;   // 인접 곡 전환 거리 (transition cost 대상)
     const pd = prefDetail(s, rules, inputs.user);
     const pref = pd.score;
     return {
-      song: s, fit, prog, pref, basis: pd.basis, neutral: pd.neutral,
+      song: s, fit, prog, jump, pref, basis: pd.basis, neutral: pd.neutral,
       band: band > 0 ? Math.floor(fit / band) : 0,
       pbucket: pbucket > 0 ? Math.floor(R9(pref) / pbucket) : 0,
       jitter: R9(jitterOf(seed, s.song_id, stepI)),
@@ -480,8 +451,7 @@ export function recommend(catalog, rules, inputsIn) {
   const songCountOut = { by_time: byTime, by_journey: byJourney, effective: n, journey: R6(journey) };
   const inputs = { ...inputsIn, _n_songs: n };
 
-  let { maxStep, active } = applyModulators(rules, inputs);
-  maxStep *= Number((rules.iso.step_limit_scale || {})[rules.coordinate_space || "raw"] ?? 1.0);
+  const { active } = applyModulators(rules, inputs);
   const gateIds = new Set([...active, ...(inputs.gates || [])]);
   const gates = rules.gates.filter((g) => gateIds.has(g.id));
   const { uni: universe, blocked, genreApplied } = eligibleUniverse(catalog, rules, ctx, inputs, gates);
@@ -499,7 +469,8 @@ export function recommend(catalog, rules, inputsIn) {
   const varc = rules.variation || {};
   const seed = varc.enabled ? inputs[varc.seed_input || "seed"] ?? null : null;
   const pbucket = varc.enabled ? Number(varc.pref_bucket || 0) : 0;
-  const fw = Number(rules.path.fit_weight), pw = Number(rules.path.progress_weight);
+  const pw = Number(rules.path.progress_weight);
+  const jw = Number(rules.path.jump_weight || 0);   // 전환 비용 λ (2.4.0)
   const strategy = rules.search.strategy;
   const beamW = strategy === "beam" ? Number(rules.search.beam_width) : 1;
   const nExpand = strategy === "beam" ? Number(rules.search.expand_per_step) : 1;
@@ -511,16 +482,16 @@ export function recommend(catalog, rules, inputsIn) {
     const next = [];
     const stepPool = regionPool(universe, ctx, wp, term, rules);   // 걸음당 1회
     for (const st of beam) {
-      const { cands, bandSize, relaxed } = stepCandidates(stepPool, st, ctx, wp, tgtC, term, rules, inputs, maxStep, band, nExpand, wi, seed, pbucket);
+      const { cands, bandSize, relaxed } = stepCandidates(stepPool, st, ctx, wp, tgtC, term, rules, inputs, band, nExpand, wi, seed, pbucket);
       for (const c of cands) {
         const s = c.song;
         const ac = { ...st.artistCount };
-        for (const a of artistKeys(s.artist)) ac[a] = (ac[a] || 0) + 1;
+        ac[s.artist] = (ac[s.artist] || 0) + 1;
         next.push({
           used: [...st.used, s.song_id],
           artistCount: ac,
           prev: ctx.coords.get(s.song_id),
-          cost: st.cost + fw * (c.band * band) + pw * c.prog,
+          cost: st.cost + c.band * band + pw * c.prog + jw * c.jump,
           prefSum: st.prefSum + c.pref,
           pbSum: st.pbSum + c.pbucket,
           jitSum: st.jitSum + c.jitter,
