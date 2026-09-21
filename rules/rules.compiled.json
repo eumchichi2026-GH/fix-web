@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "rules_version": "v2.1.0",
+  "rules_version": "v2.2.0",
   "note": "숫자는 전부 설계 사전값(prior). 골드셋 채점으로 재추정 대상.",
   "coordinate_space": "percentile",
   "coordinate_note": "퍼센타일 좌표 p(x) = (x보다 작은 곡 수 + 같은 값 곡 수의 절반) / 전체. 기준선이 계산 없이 0.5 가 되고, \"거리 0.1\" 이 \"카탈로그의 10%\" 라는 뜻이 되어 희소 구간(휴식 사분면)에서도 후보가 고갈되지 않습니다. 화면에 그리는 좌표는 원 V/A 유지.\n",
@@ -18,14 +18,6 @@
         "V",
         "A"
       ]
-    },
-    "stress": {
-      "type": "ordinal",
-      "range": [
-        0,
-        4
-      ],
-      "source": "self_report"
     },
     "load": {
       "type": "ordinal",
@@ -179,9 +171,10 @@
     ]
   },
   "path": {
-    "fit_weight": 1.0,
     "progress_weight": 0.35,
-    "evidence": "ISO 는 '이동'이 본체이므로 비용은 경로 단위로 매긴다."
+    "jump_weight": 0.1,
+    "jump_weight_evidence": "전환 비용(transition cost): cost += jump_weight × dist(후보, 이전 곡). 급격한 곡 간 변화를 억제한다.\n[2026-09-21 실카탈로그 4,117곡, 시나리오 600] λ: 0→0.1 에서 최대 전환 거리 0.224→0.197(−13%), 0.25/0.5/1 은 0.197/0.197/0.196 으로 평탄. 도착 오차 0.031→0.033→0.035→0.037 로 λ 가 클수록 증가. 스트레스 0~4 단계별(단계당 120)로도 모든 단계가 0.1 에서 꺾이고 고스트레스에서 λ 를 키워도 이득 ≤0.003 → 스트레스 무관 단일값. 이득이 끝나는 가장 작은 값 0.1 채택.",
+    "evidence": "ISO 는 '이동'이 본체이므로 비용은 경로 단위로 매긴다. 비용 = Σ(양자화 거리) + progress_weight × Σ(진행 페널티) + jump_weight × Σ(인접 곡 거리).\n[2026-09-21] fit_weight(1.0) 제거 — 균등 배율이라 결과 무관. progress_weight 는 0 이면 역행 2배(0.025→0.052), 0.2~1.5 는 결과 동일 → 켜져 있어야 하며 값은 결과에 닿지 않음(양자화 때문)."
   },
   "preference": {
     "band": 0.05,
@@ -290,28 +283,10 @@
       }
     ],
     "transition_point_evidence": "[2026-09-17 이관] index.html 의 임시 오버라이드(+tp-override)로만 존재하던 값을 규칙 파일로 옮겼습니다. 앱이 실제로 써 온 값과 동일하므로 추천 결과는 바뀌지 않습니다(회귀 144/144 동일).\n이전 compiled 값(10분 0.7 / 30분 0.5 / 90분 0.45)은 곡 수가 3일 때 t = 0, 1, 1 이 되어 중간 경유지가 0개인 퇴화 구간을 만들었습니다(change.md 8-B·18번). 현재 값은 ~15분(≈4곡) 전 구간 이동, ~25분 마지막 1~2곡 유지, 그 이상 후반 40% 유지. 2026-09-15 파라미터 스윕(engine.js 5,220회)에서 이 값이 이전 compiled 값보다 나은 것으로 확인되어 이관을 결정했습니다.\n경계(15·25분)는 song_count(3.73분/곡, 최대 9곡)에 종속 — 곡 수 규칙을 바꾸면 함께 검토하세요.\n",
-    "max_step_jump": 0.4,
     "no_repeat_within": 3,
-    "step_limit_scale": {
-      "raw": 1.0,
-      "percentile": 1.3
-    },
-    "step_limit_note": "modulators.stress_step_limit 의 map 은 원좌표 기준 사전값이라, 퍼센타일 좌표에서는 이 배율로 환산합니다. 상한 = map[stress] × scale.\n\n[2026-08-16 실카탈로그 2,326곡 재측정 — 시나리오 8 × 스트레스 0~4 × 길이 10~90분 × 시드 3 = 480회]\n  scale  상한완화%(stress 0/1/2/3/4)        적합도오차  커버리지\n  0.9    0.4 0.4 1.1 2.3 4.2              0.0350     419곡\n  1.1    0.0 0.3 0.4 1.1 2.5              0.0338     405곡\n  1.3    0.0 0.0 0.0 0.4 1.1              0.0334     384곡   ← 채택\n  1.4    0.0 0.0 0.0 0.4 1.1              0.0327     374곡\n  1.8    0.0 0.0 0.0 0.0 0.4              0.0318     345곡   ← 이전 (합성 120곡 기준)\n\n이전 값 1.8 은 '상한완화 0%' 만 보고 고른 값인데, 그러면 상한 자체가 죽습니다: stress=4 에서 상한이 0.45(퍼센타일 평면 최대거리 1.414의 32%)라 실측에서 사실상 걸리지 않았습니다. 즉 '스트레스가 높을수록 한 걸음을 작게' 라는 설계 의도가 꺼져 있었습니다.\n\n완화율만 보면 오해합니다 — radius 0.15 와 함께 적용했을 때 곡 사이 퍼센타일 이동이 0.325 이내인 비율은 1.8 에서 93.1%, 1.3 에서 93.8% 로 **오히려 걸음이 더 조여집니다**. 완화가 늘어난 건 제약이 실제로 일을 하기 시작했다는 뜻이고, 완화된 걸음은 trace.step_relaxed 로 전부 기록됩니다.\n"
+    "removed_2026_09_21": "max_step_jump·step_limit_scale·modulators.stress_step_limit·inputs.stress 제거. [2026-09-21 실카탈로그 600 시나리오] 제약 발동 0.01회/세션, 제거 시 곡 변경 4%, 최대 전환·도착 오차·역행 전부 동일. 급변 억제는 path.jump_weight 가 담당."
   },
   "modulators": [
-    {
-      "id": "stress_step_limit",
-      "input": "stress",
-      "applies_to": "iso.max_step_jump",
-      "map": {
-        "0": 0.5,
-        "1": 0.45,
-        "2": 0.4,
-        "3": 0.32,
-        "4": 0.25
-      },
-      "evidence": "스트레스가 높을수록 한 걸음을 작게. stress 단독 함수."
-    },
     {
       "id": "load_spoken_gate",
       "input": "load",
@@ -395,5 +370,6 @@
     "va_source",
     "wp_A",
     "wp_V"
-  ]
+  ],
+  "sensitivity_2026_09_21": "one-at-a-time 민감도 분석(실카탈로그 4,117곡, 시나리오 400). 최대 전환 거리 변동폭: iso.transition_point 0.063 > path.jump_weight 0.030 > search.expand_per_step 0.022 > iso.min_step_span 0.016 > search.beam_width 0.008 = preference.band 0.008 > step_limit 0.001 = path.progress_weight 0.000 = selection.region.radius 0.000. 도착 오차 변동폭은 preference.band 0.043 이 최대(0.025 에서 0.023 으로 개선되나 선호 레인 작동 폭과 상충하여 보류). 채택: 보폭 제약 제거, λ=0.1, 나머지 현재값 유지."
 }
