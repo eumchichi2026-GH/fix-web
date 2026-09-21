@@ -15,10 +15,24 @@
    2.2.0 (2026-09-17): iso.min_step_span 구현, 영역 풀 걸음당 1회 계산, song_count 출력.
    2.3.0 (2026-09-17): 개인화 재배선 — '들어본 곡 중 좋아요한 비율'을 가수·곡 특징 단위로 집계(aggregateAffinity),
                        선호 결합 방식 preference.combine = "mean_like_rate". */
-export const ENGINE_VERSION = "2.3.0";
+export const ENGINE_VERSION = "2.3.1";
 
 const R9 = (x) => Math.round(x * 1e9) / 1e9;
 const R6 = (x) => Math.round(x * 1e6) / 1e6;
+
+/* ── 가수 키 (2.3.1) ─────────────────────────────────────
+   카탈로그의 artist 는 여러 명일 때 "A;B;C" 한 문자열이다. 이걸 통째로 키로 쓰면
+   협업곡은 'A;B;C 라는 가수'의 곡이 되어 (1) A 를 좋아해도 이 곡에 반영되지 않고
+   (2) '같은 가수 최대 N곡' 상한도 피해 간다. 그래서 가수 한 명 단위로 쪼개서 센다.
+   키는 대소문자·공백 차이를 없앤 값 — 화면 표기와 사용자가 적은 표기를 같은 가수로 맞추기 위해서다. */
+export function artistKey(name) {
+  return String(name ?? "").trim().toLowerCase().replace(/\s+/g, "");
+}
+export function artistKeys(artist) {
+  const seen = new Set();
+  for (const part of String(artist ?? "").split(";")) { const k = artistKey(part); if (k) seen.add(k); }
+  return [...seen];
+}
 
 function bisectLeft(a, x) {
   let lo = 0, hi = a.length;
@@ -223,7 +237,7 @@ export function aggregateAffinity(items, rules) {
     const has = (x) => scope.includes(x);
     if (has("base")) { if (liked) out.like_base.pos += 1; else out.like_base.neg += 1; }
     if (has("song") && it.song_id) vote(out.song_likes, it.song_id, liked, it.days);
-    if (has("artist") && it.artist) vote(out.artist_affinity, it.artist, liked, it.days);
+    if (has("artist")) for (const a of artistKeys(it.artist)) vote(out.artist_affinity, a, liked, it.days);
     if (has("genre")) for (const g of it.genres || []) vote(out.genre_affinity, g, liked, it.days);
     for (const id of featIds) {
       const b = it.feature_bins && it.feature_bins[id];
@@ -268,7 +282,14 @@ function prefDetail(song, rules, user) {
       basis.push({ id, score: v });
     };
     rate("song", (user.song_likes || {})[song.song_id]);
-    if (song.artist) rate("artist", (user.artist_affinity || {})[song.artist]);
+    /* 가수가 여러 명인 곡은 장르와 같은 방식 — 기록이 있는 가수 중 내 좋아요 비율이 가장 높은 가수를 쓴다 */
+    const aks = artistKeys(song.artist);
+    if (aks.length) {
+      const aa = user.artist_affinity || {};
+      const recs = aks.map((a) => aa[a]).filter(Boolean);
+      const best = recs.length ? recs.reduce((a, b) => (shrunk(b.pos, b.neg, pk, decayOf(b), p0) > shrunk(a.pos, a.neg, pk, decayOf(a), p0) ? b : a)) : null;
+      rate("artist", best);
+    }
     if ((song.genres || []).length) {
       const ga = user.genre_affinity || {};
       const recs = song.genres.map((g) => ga[g]).filter(Boolean);
@@ -286,7 +307,8 @@ function prefDetail(song, rules, user) {
   /* 이전 방식(가중합) — 비교 실험용. preference.combine 을 "weighted" 로 두면 이 경로. */
   const w = p.weights;
   const sf = (user.song_feedback || {})[song.song_id];
-  const af = (user.artist_affinity || {})[song.artist];
+  const af = artistKeys(song.artist).map((a) => (user.artist_affinity || {})[a]).filter(Boolean)
+    .sort((a, b) => shrunk(b.pos || 0, b.neg || 0, pk, decayOf(b)) - shrunk(a.pos || 0, a.neg || 0, pk, decayOf(a)))[0];
   const ga = user.genre_affinity || {};
   const hits = (song.genres || []).filter((g) => g in ga).map((g) => shrunk(ga[g].pos || 0, ga[g].neg || 0, pk, decayOf(ga[g])));
   const personal = sf ? shrunk(sf.pos || 0, sf.neg || 0, pk, decayOf(sf)) : 0.5;
@@ -375,6 +397,11 @@ function waypoints(nowC, tgtC, n, at) {
 }
 
 // ── 탐색 ────────────────────────────────────────────────
+/* 같은 가수 상한: 곡에 참여한 가수 중 한 명이라도 상한에 닿았으면 제외 (피처링으로 상한을 피해 가지 못하게) */
+function artistCapped(s, state, cap) {
+  for (const a of artistKeys(s.artist)) if ((state.artistCount[a] || 0) >= cap) return true;
+  return false;
+}
 function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, maxStep, band, nExpand,
                        stepI = 0, seed = null, pbucket = 0) {
   /* pool = 이 걸음의 영역 후보. 같은 걸음의 빔 상태들은 경유지가 같아 영역 풀도 같으므로
@@ -384,7 +411,7 @@ function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, maxStep
   let cands = [];
   for (const s of pool) {
     if (state.used.includes(s.song_id)) continue;
-    if ((state.artistCount[s.artist] || 0) >= cap) continue;
+    if (artistCapped(s, state, cap)) continue;
     const c = ctx.coords.get(s.song_id);
     if (state.prev && dist(c, state.prev, term) > maxStep) continue;
     cands.push(s);
@@ -392,7 +419,7 @@ function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, maxStep
   let relaxed = false;
   if (!cands.length) {   // 걸음 상한 완화. 반드시 기록에 남긴다.
     relaxed = true;
-    cands = pool.filter((s) => !state.used.includes(s.song_id) && (state.artistCount[s.artist] || 0) < cap);
+    cands = pool.filter((s) => !state.used.includes(s.song_id) && !artistCapped(s, state, cap));
   }
   if (!cands.length) return { cands: [], bandSize: 0, relaxed: false };
 
@@ -488,7 +515,7 @@ export function recommend(catalog, rules, inputsIn) {
       for (const c of cands) {
         const s = c.song;
         const ac = { ...st.artistCount };
-        ac[s.artist] = (ac[s.artist] || 0) + 1;
+        for (const a of artistKeys(s.artist)) ac[a] = (ac[a] || 0) + 1;
         next.push({
           used: [...st.used, s.song_id],
           artistCount: ac,

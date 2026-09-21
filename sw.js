@@ -4,7 +4,7 @@
  * - Firebase / Spotify / Gemini 등 API 요청은 건드리지 않음
  * 배포할 때마다 VERSION 을 올리면 구캐시가 자동 삭제됩니다.
  */
-const VERSION = 'azt-v8';
+const VERSION = 'azt-v9';
 /* [2026-09-17] '/rules.compiled.json' 은 없는 경로였다(실제는 /rules/ 아래). cache.addAll 은 하나라도
    실패하면 전체가 실패하므로, 그동안 앱 셸 사전 캐시가 통째로 조용히 실패하고 있었다(.catch 로 삼켜짐).
    경로를 고치고, 추천에 꼭 필요한 engine.js · pwa.js 를 셸에 넣었다. */
