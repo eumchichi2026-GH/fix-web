@@ -298,77 +298,28 @@ select{width:100%;border:1px solid var(--line-dark);padding:9px;background:var(-
 .my-card.wall-card{grid-column:1 / -1;background:var(--paper);padding:0;border:1px solid var(--line)}
 .wall-card h3{padding:14px 16px 0}
 .wall-card>p{padding:0 16px}
-/* ── 벽 (10차): 곡·가수 메모지가 반듯한 격자로 붙는다. 곡 = 흰 메모지, 가수 = 잉크 메모지 ── */
-.wall-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px 0}
-.wall-filter{display:flex;gap:6px}
-.wall-filter button{min-height:36px;border:1px solid var(--ink);background:transparent;color:var(--ink);padding:0 14px;
-  font-size:.74rem;font-weight:500;border-radius:18px}
-.wall-filter button[aria-pressed=true]{background:var(--ink);color:var(--on-ink);font-weight:700}
-.wall-add{min-height:40px;border:1px solid var(--ink);background:var(--ink);color:var(--on-ink);padding:0 16px;
-  font-size:.76rem;font-weight:700;display:inline-flex;align-items:center;gap:8px}
-.wall-add:hover{background:var(--ink-strong)}
-.wall{min-height:240px;margin-top:12px;padding:26px 18px 26px;background:var(--panel);
+/* ── 포스트잇 벽: 붙인 곡이 메모지가 되어 벽을 채운다 ── */
+.wall{min-height:240px;margin-top:12px;padding:22px 18px 26px;background:var(--panel);
   background-image:radial-gradient(var(--dot) .7px,transparent .8px);background-size:16px 16px;
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:22px 14px;align-content:flex-start}
-.wall-empty{grid-column:1 / -1;align-self:center;border:1px dashed var(--line-dark);background:var(--overlay);
+  display:flex;flex-wrap:wrap;gap:18px;align-content:flex-start}
+.wall-empty{width:100%;align-self:center;border:1px dashed var(--line-dark);background:var(--overlay);
   padding:34px 20px;text-align:center;color:var(--muted);font-size:.78rem}
-.note{position:relative;min-height:156px;background:var(--paper);border:1px solid var(--ink);
-  padding:18px 12px 10px;display:flex;flex-direction:column;transition:transform .18s ease}
-.note:hover{transform:translateY(-3px);z-index:5}
-.note .tape{position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:40px;height:13px;background:var(--tape)}
-.note .note-src{font-size:.56rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--mid);margin-bottom:6px}
-.note b{display:block;font-size:.84rem;line-height:1.3;letter-spacing:-.01em;font-weight:800}
-.note .note-artist{display:block;font-size:.68rem;color:var(--mid);margin-top:3px}
-.note .note-memo{width:100%;border:0;border-top:1px solid var(--ink);background:transparent;resize:none;
-  margin-top:auto;padding:8px 1px 2px;font-size:.72rem;line-height:1.5;color:var(--ink);min-height:46px}
-.note .note-memo:placeholder-shown{border:1px dashed var(--mid);padding:7px 8px;margin-top:auto}
-.note .note-memo:focus{outline:none;border:0;border-top:1px solid var(--ink);padding:8px 1px 2px}
-.note .note-foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;min-height:24px}
-.note .note-foot a{font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:inherit;
-  text-decoration:none;border-bottom:1px solid currentColor;font-weight:600}
-.note .note-peel{border:0;background:transparent;color:var(--mid);font-size:.64rem;letter-spacing:.06em;padding:4px 0 4px 8px}
+.note{position:relative;width:178px;background:var(--paper);border:1px solid var(--line-dark);
+  box-shadow:2px 3px 0 rgba(22,22,22,.08);padding:20px 12px 10px;
+  transform:rotate(var(--rot,0deg));transition:transform .18s ease}
+.note:hover{transform:rotate(0deg) translateY(-3px);z-index:5}
+.note .tape{position:absolute;top:-7px;left:50%;transform:translateX(-50%) rotate(var(--tape,0deg));
+  width:44px;height:14px;background:var(--tape);border:1px solid transparent}
+.note b{display:block;font-size:.8rem;line-height:1.35;letter-spacing:-.01em}
+.note .note-artist{display:block;font-size:.66rem;color:var(--muted);margin-top:2px}
+.note .note-memo{width:100%;border:0;border-top:1px dashed var(--line);background:transparent;resize:none;
+  margin-top:9px;padding:7px 1px 2px;font-size:.72rem;line-height:1.5;color:var(--mid);min-height:44px}
+.note .note-memo:focus{outline:none;border-top-color:var(--ink);color:var(--ink)}
+.note .note-foot{display:flex;justify-content:space-between;align-items:center;margin-top:5px}
+.note .note-foot a{font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);
+  text-decoration:none;border-bottom:1px solid var(--ink);font-weight:600}
+.note .note-peel{border:0;background:transparent;color:var(--muted);font-size:.62rem;letter-spacing:.06em}
 .note .note-peel:hover{color:var(--ink)}
-.note.note-artist-card{background:var(--ink);color:var(--on-ink)}
-.note.note-artist-card .tape{background:var(--line-dark)}
-.note.note-artist-card .note-src{color:var(--on-ink);opacity:.72}
-.note.note-artist-card .note-name{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
-.note.note-artist-card .note-name b{font-size:1.18rem;line-height:1.15;letter-spacing:-.02em;word-break:keep-all}
-.note.note-artist-card svg{flex:none;stroke:var(--on-ink)}
-.note.note-artist-card .note-count{font-size:.62rem;opacity:.72}
-.note.note-artist-card .note-peel{color:var(--on-ink);opacity:.72}
-.note.note-artist-card .note-peel:hover{color:var(--on-ink);opacity:1}
-.wall-legacy{padding:10px 16px 14px;font-size:.7rem;color:var(--mid)}
-/* ── 벽에 붙이기 패널: PC 는 벽 옆에 열려 붙는 즉시 벽이 바뀌는 게 보이고, 모바일은 전체 화면 ── */
-.wall-panel{position:fixed;top:0;right:0;bottom:0;width:420px;max-width:100%;z-index:150;background:var(--paper);
-  border-left:1px solid var(--ink);display:flex;flex-direction:column;padding:26px 24px calc(22px + env(safe-area-inset-bottom));overflow-y:auto}
-.wall-panel[hidden]{display:none}
-.wall-panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
-.wall-panel-head h3{font-size:1.4rem;font-weight:800;letter-spacing:-.02em;margin-top:6px}
-.wall-panel-x{width:44px;height:44px;border:0;background:transparent;font-size:1rem;margin:-8px -12px 0 0}
-.wall-panel-foot{margin-top:auto;padding-top:18px;display:grid;gap:12px}
-.wall-panel-foot p{font-size:.7rem;line-height:1.5;color:var(--mid)}
-.wall-panel-foot button{min-height:48px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);font-weight:700;font-size:.82rem}
-@media(min-width:1000px){ body.wall-open #myAzt{padding-right:calc(420px + 3vw)} }
-@media(max-width:720px){ .wall-panel{width:100%;border-left:0} }
-/* ── 검색-선택 부품: 온보딩과 벽에 붙이기가 같이 쓴다 ── */
-.picker label{display:block;font-size:.72rem;font-weight:700;color:var(--ink);margin-bottom:8px}
-.picker-field{display:flex;align-items:center;gap:10px;border:1px solid var(--ink);padding:0 12px;min-height:48px}
-.picker-field svg{flex:none;stroke:var(--ink)}
-.picker-field input,.modal .picker-field input[type=text]{flex:1;min-width:0;border:0;outline:0;background:transparent;padding:10px 0;font-size:.95rem;width:auto}
-.picker-hint{font-size:.7rem;color:var(--mid);margin-top:7px;min-height:1.1em}
-.picker-sec{margin-top:18px}
-.picker-sec h4{font-size:.58rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--mid);
-  padding-bottom:9px;border-bottom:1px solid var(--ink)}
-.picker-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-dark)}
-.picker-row svg{flex:none;stroke:var(--ink)}
-.picker-row .pr-text{flex:1;min-width:0}
-.picker-row .pr-text b{display:block;font-size:.9rem;font-weight:700;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.picker-row .pr-text span{display:block;font-size:.7rem;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.picker-row button{flex:none;min-height:40px;border:1px solid var(--ink);background:var(--ink);color:var(--on-ink);padding:0 15px;font-size:.76rem;font-weight:700}
-.picker-row button:disabled{border:1px dashed var(--mid);background:transparent;color:var(--mid);font-weight:500}
-.picker-none{margin-top:18px;border:1px dashed var(--line-dark);padding:20px 14px;text-align:center;font-size:.76rem;color:var(--mid)}
-.track-picked span.is-artist{background:var(--ink);color:var(--on-ink)}
-.track-picked span.is-artist button{color:var(--on-ink)}
 #myHistory>p{border:1px dashed var(--line-dark);padding:16px;text-align:center;color:var(--muted)}
 .my-edit{display:grid;gap:8px}
 .my-edit-row{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
@@ -471,9 +422,8 @@ html[data-theme=dark] .time-out{color:var(--accent)}
   .primary,.ghost{padding:14px 18px}
   .song-action{padding:10px 12px}
   .seq-nav button{padding:12px}
-  .wall{padding:22px 12px 20px;gap:20px 10px;grid-template-columns:repeat(2,minmax(0,1fr))}
-  .note{padding:16px 10px 8px}
-  .wall-add{width:100%;justify-content:center;min-height:46px}
+  .wall{padding:16px 12px 20px;gap:12px}
+  .note{width:calc(50% - 6px);padding:16px 10px 8px}
   .vinyl-panel{min-height:32vh;padding:22px}
   .my-guest{padding:34px 16px}
   input,select,textarea{font-size:16px}
@@ -578,7 +528,7 @@ html[data-theme=dark] .time-out{color:var(--accent)}
           <button class="primary" type="button" id="myGuestLogin">로그인</button>
         </div>
         <div id="myOwn" class="my-grid">
-          <div class="my-card wall-card"><h3>나의 벽</h3><p>좋아하는 곡과 가수가 메모지로 붙어요. 떼고 붙이면 그게 곧 내 취향이에요.</p><div id="myPlaylist"></div></div>
+          <div class="my-card wall-card"><h3>나의 벽</h3><p>붙인 곡이 메모지로 남아요. 눌러서 한 줄을 적어보세요.</p><div id="myPlaylist"></div></div>
           <div class="my-card"><h3>설정</h3><div class="my-edit"><div class="my-edit-row"><label for="myDisplayName">이름</label><input id="myDisplayName" type="text" maxlength="40" placeholder="내 이름"></div><div class="my-edit-row"><label for="myRecommendMinutes">시간 · <span class="time-out"><b id="myRecommendMinutesOut">30</b>분</span></label><input type="range" class="time-slider" id="myRecommendMinutes" min="5" max="90" step="5" value="30" aria-label="기본 감상 시간(분)"/></div><div class="my-edit-row"><label>화면</label><div class="theme-toggle" role="group" aria-label="화면 테마"><button type="button" id="themeLight" aria-pressed="true">라이트</button><button type="button" id="themeDark" aria-pressed="false">다크</button></div></div><div class="my-edit-row"><label for="myLyric">가사</label><select id="myLyric"><option value="no_preference">상관없어요</option><option value="instrumental_only">가사 없는 곡</option><option value="prefer_instrumental">가사 적은 곡</option><option value="prefer_vocal">가사 있는 곡</option></select></div><div><label style="display:block;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:6px">장르</label><div id="myGenreEdit" class="my-genre-edit"></div></div><button id="saveMyPrefs" class="my-save" type="button">저장</button><p id="myEditStatus" class="plane-note"></p></div></div>
           <div class="my-card"><h3>기록</h3><p id="myFeedbackSummary"></p><div id="myHistory" style="margin-top:8px"><p>아직 기록이 없어요.</p></div></div>
           <div class="my-card"><h3>계정</h3><button id="deleteMyData" class="mini-btn danger-btn" type="button">데이터·계정 삭제</button><p class="privacy-note">삭제는 되돌릴 수 없어요. AZT는 의학적 진단·치료를 제공하지 않습니다.</p></div>
@@ -587,19 +537,6 @@ html[data-theme=dark] .time-out{color:var(--accent)}
     </div>
   </section>
 </div>
-
-<!-- ── 벽에 붙이기 패널 (10차) ── -->
-<aside class="wall-panel" id="wallPanel" aria-label="벽에 붙이기" hidden>
-  <div class="wall-panel-head">
-    <div><span class="room-tag">ADD TO WALL</span><h3>벽에 붙이기</h3></div>
-    <button class="wall-panel-x" id="wallPanelClose" type="button" aria-label="닫기">✕</button>
-  </div>
-  <div id="wallPicker"></div>
-  <div class="wall-panel-foot">
-    <p>카탈로그에 있는 곡과 가수만 붙일 수 있어요. 붙인 메모지는 내 방에서 언제든 뗄 수 있어요.</p>
-    <button id="wallPanelDone" type="button">완료</button>
-  </div>
-</aside>
 
 <!-- ── 로그인 / 회원가입 / 온보딩 모달 ── -->
 <div class="modal-back" id="authModal" hidden>
@@ -635,10 +572,14 @@ html[data-theme=dark] .time-out{color:var(--accent)}
       <label class="f">좋아하는 장르 <span style="font-weight:400;color:var(--pine-soft);">(여러 개 선택)</span></label>
       <div class="ob-chips" id="obGenres" role="group" aria-label="선호 장르 선택"></div>
 
-      <label class="f" for="obPickInput">좋아하는 가수 · 곡 <span style="font-weight:400;color:var(--pine-soft);">(각 최대 5)</span></label>
+      <label class="f" for="obArtists">좋아하는 가수</label>
+      <input id="obArtists" type="text" placeholder="예: 아이유, NewJeans (쉼표로 구분)" />
+
+      <label class="f" for="obTrackSearch">좋아하는 곡</label>
+      <input id="obTrackSearch" type="text" placeholder="곡 제목이나 가수로 검색 (최대 5곡)" />
+      <p class="ob-hint">지금 서비스에 있는 곡 중에서 골라주세요. 고른 곡의 특성이 취향 분석에 쓰여요.</p>
+      <div class="track-results" id="obTrackResults"></div>
       <div class="track-picked" id="obTrackPicked"></div>
-      <div id="obPicker"></div>
-      <p class="ob-hint">지금 서비스에 있는 가수·곡 중에서 골라주세요. 고른 것들은 내 방 벽의 첫 메모지가 되고, 나중에 떼고 붙일 수 있어요.</p>
 
       <label class="f" for="obLyric">평소 가사 선호</label>
       <select id="obLyric">
@@ -784,17 +725,9 @@ let AZT_RULES  = null;     // 컴파일된 규칙
 let ALGO_VERSION = "v2.1-loading";
 let LAST_ENGINE_RESULT = null;   // 직전 추천의 엔진 출력(trace 포함) — 로그·설명에 사용
 
-/* stress(자기보고)와 load(상황부하)는 계약상 끝까지 분리된 축입니다.
-   한 모듈레이터가 둘을 함께 참조하면 규칙 빌드가 실패합니다. 여기서도 절대 합치지 마세요. */
-
-/* 스트레스: 8/4 개편으로 슬라이더를 없애고 사분면 입력으로 통합했으므로,
-   '지금' 좌표에서 유도합니다. 부정적일수록(V↓) 각성될수록(A↑) 높게.
-   ※ 자기보고 문항을 다시 넣게 되면 이 유도를 걷어내고 실제 응답을 쓰세요. */
-function deriveStress(cur) {
-  if (!cur) return 2;
-  const tension = (1 - cur.v) * 0.6 + cur.e * 0.4;   // 0~1
-  return Math.max(0, Math.min(4, Math.round(tension * 4)));
-}
+/* [2026-09-20 제거] deriveStress(지금 좌표 → 스트레스 0~4)와 inputs.stress.
+   스트레스는 걸음 상한(max_step_jump)에만 쓰였는데, 후보가 경유지 반경 안에서만 나와 그 상한이 결과를 바꾼 적이 없어
+   엔진 2.4.0 / 규칙 v2.2.0 에서 사슬을 통째로 지웠다. '지금' 좌표가 이미 상태를 담고 있고, 이동 속도는 PACE_MODE 가 맡는다. */
 
 /* 상황부하: 현재 앱은 수집하지 않습니다(날씨·캘린더·장소는 2단계 과제).
    null 이면 엔진이 해당 모듈레이터를 건너뜁니다 — 0 으로 넣으면 "부하 없음"을
@@ -811,8 +744,8 @@ async function loadEngine() {
   } else {
     /* ?v= : 이미 설치된 옛 서비스워커(azt-v6)는 이 두 파일을 캐시에서 먼저 돌려준다.
        주소를 바꿔 그 캐시를 비켜 간다. 새 서비스워커(v7)부터는 network-first 라 값은 안 올려도 된다. */
-    AZT_ENGINE = await import("./engine/engine.js?v=232");
-    const res = await fetch("./rules/rules.compiled.json?v=230", { cache: "no-cache" });
+    AZT_ENGINE = await import("./engine/engine.js?v=240");
+    const res = await fetch("./rules/rules.compiled.json?v=240", { cache: "no-cache" });
     if (!res.ok) throw new Error("rules.compiled.json HTTP " + res.status);
     AZT_RULES = await res.json();
   }
@@ -896,33 +829,26 @@ let SONGS = [];
    그래서 곡을 불러올 때 한 번, 데이터 표기 → 화면 장르 이름으로 바꿔 둔다(GENRE_RULES).
    이후 필터·엔진·개인화(장르 묶음)는 전부 '화면 장르 이름' 하나만 쓴다.
    ⚠️ 아래 규칙은 실제 표기 목록을 다 보기 전에 만든 것이다. 콘솔에서 AZT_DEBUG.catalogReport() 를 실행하면
-      '어느 버튼에도 안 잡힌 표기'가 나온다 — 그 목록을 보고 규칙을 보완할 것.
-
-   2026-09-20 보완: 곡이 4,117곡으로 늘면서 새 장르 표기가 들어와 **48곡(그중 46곡이 새 곡)이 어느 버튼에도
-   안 걸렸다** — 컨트리·라틴·레게·크리스마스·뉴 웨이브/이모/그런지·스윙·포크 계열. 배포본(eumchichi-web
-   dfdce93)과 같은 판단으로 각 줄 끝에 표기를 더했다. 판단이 갈리는 매핑: 컨트리(`"국가"` 는 Spotify 의
-   country 오역)·라틴·레게·크리스마스 → `팝`(해당 버튼이 없어 가장 가까운 쪽), 펑크(Funk) → `EDM`.
-   `"스윙"` 이 아니라 `"스윙 음악"` 인 이유는 `"아프로스윙"` 이 재즈로 끌려오지 않게 하려는 것. */
+      '어느 버튼에도 안 잡힌 표기'가 나온다 — 그 목록을 보고 규칙을 보완할 것. */
 const GENRE_RULES = {
   "K-pop":   /k-?pop|케이팝|k-?팝|^k-/i,              // "K-발라드"·"K-힙합"처럼 K- 로 시작하면 한국 대중음악으로 본다
   "J-pop":   /j-?pop|제이팝|j-?팝|보컬로이드|vocaloid|시부야계|가요쿄쿠|엔카|비주얼계/i,   // 2026-09-18 추가 — 234곡, 팝(17곡)과 분리
   "발라드":   /ballad|발라드/i,
   "힙합":     /hip[ -]?hop|\brap\b|힙합|랩/i,
   "R&B":     /r&b|rnb|r ?n ?b|\bsoul\b|알앤비|소울/i,
-  "인디":     /indie|인디|싱어송라이터|포크/i,
-  "록":       /\brock\b|\bpunk\b|\bmetal\b|록|락|메탈|밴드|노이즈 음악|슈게이징|브릿팝|매드체스터|슬로우코어|indorock|뉴 웨이브|뉴 레이브|라이엇 걸|퀴어코어|\bemo\b|그런지|하드코어/i,
-  "팝":       /(^|[^a-z-])pop\b|(^|[^가-힣-])팝$|^팝|하이퍼팝|만도팝|mandopop|차이나팝|칸토팝|cantopop|아프로팝|아프로비트|아프로스윙|국가|컨트리|라틴|latino|레게|son cubano|팀바|크리스마스|두왑|프리스타일/i,  // K-팝·J-팝·시티팝은 아래 제외 규칙으로 뺀다
-  "재즈":     /jazz|bossa|재즈|보사|하드 밥|비밥|빅 ?밴드|스윙 음악|어덜트 스탠다드/i,
+  "인디":     /indie|인디/i,
+  "록":       /\brock\b|\bpunk\b|\bmetal\b|록|락|메탈|밴드|노이즈 음악|슈게이징|브릿팝|매드체스터|슬로우코어|indorock/i,
+  "팝":       /(^|[^a-z-])pop\b|(^|[^가-힣-])팝$|^팝|하이퍼팝|만도팝|mandopop|차이나팝|칸토팝|cantopop|아프로팝/i,  // K-팝·J-팝·시티팝은 아래 제외 규칙으로 뺀다
+  "재즈":     /jazz|bossa|재즈|보사|하드 밥|비밥/i,
   "클래식":   /classical|orchestra|클래식|오케스트라|인상주의|신고전주의|체임버|협주곡|오페라|바로크|미니멀리즘|르네상스/i,
   "lo-fi":   /lo-?fi|chillhop|로파이/i,
-  "EDM":     /\bedm\b|electro|house|techno|trance|dubstep|\bdance\b|일렉|댄스|하우스|빅 ?룸|budots|베이스|덥스텝|바운스|저지 클럽|하이에너지|디스코|amapiano|아프로피아노|gqom|하이피|펑크\(funk\)|펑키|카리오카|빅 ?비트/i,
+  "EDM":     /\bedm\b|electro|house|techno|trance|dubstep|\bdance\b|일렉|댄스|하우스|빅 ?룸|budots|베이스|덥스텝|바운스|저지 클럽|하이에너지|디스코|amapiano|아프로피아노|gqom|하이피/i,
   "OST":     /\bost\b|soundtrack|사운드트랙|드라마|영화|애니|스코어/i,
   "시티팝":   /city ?pop|시티 ?팝/i,
-  "뉴에이지": /new ?age|ambient|뉴에이지|앰비언트|이지 리스닝|네이티브 아메리칸|중국 고풍|private school piano/i,
+  "뉴에이지": /new ?age|ambient|뉴에이지|앰비언트/i,
 };
 const GENRE_RULE_EXCLUDE = { "팝": /k-?pop|j-?pop|c-?pop|k-?팝|j-?팝|케이팝|제이팝|city ?pop|시티 ?팝/i,
-                             "EDM": /^k-댄스$/i,
-                             "록": /빅 ?밴드/i };      // "밴드" 가 빅 밴드(재즈)까지 록으로 끌고 오지 않게
+                             "EDM": /^k-댄스$/i };
 function readRawGenres(d, pr) {           // genre / genres — 배열이든 문자열이든 받아서 평평하게
   const out = [];
   const take = (v) => {
@@ -986,16 +912,6 @@ let LIKED_SONGS = new Set();
 let DISLIKED_SONGS = new Set();
 let PLAYLIST_SONGS = new Set();
 let PLAYLIST_NOTES = {};   // song_id → 벽 메모 한 줄 (users.playlistNotes)
-/* [10차] 벽 = 내 취향. 설문용 main 과 같은 Firestore 를 쓰므로 기존 필드(playlists·playlistNotes·
-   favorite_tracks·preferred_artists)는 그대로 두고 옆에 두 필드만 얹는다.
-     wallMeta    { song_id: { src: "onboarding"|"search"|"playlist", at: ISO시각 } }   — 곡 메모지의 출처
-     wallArtists [ { name, src, at } ]                                              — 가수 메모지
-   추천이 읽는 곳은 바뀌지 않는다: 직접 고른 곡(onboarding·search)은 favorite_tracks 에,
-   가수 메모지는 preferred_artists 에도 들어가므로 buildHeardItems 가 예전 그대로 센다.
-   감상 화면에서 붙인 곡(playlist)은 아직 추천에 세지 않는다 — 반영 방식은 팀 결정 대기. */
-let WALL_META = {};
-let WALL_ARTISTS = [];
-let WALL_FILTER = "all";   // all | song | artist
 let LISTEN_HISTORY = [];
 let TRACK_METRICS = {};
 let ACTIVE_METRIC_ID = null;
@@ -1094,7 +1010,6 @@ async function init() {
       + (v2Missing ? " (v2 좌표 " + v2Cov + "%, 나머지는 provider 폴백)" : "")
       + (fallbackUsed ? " · 일부 곡은 검수 전 태그 사용" : ""));
     SONGS_READY = true;
-    buildArtistIndex();   // [10차] 가수 한 명 단위 목록 (검색·가수 메모지)
     { const gc = genreCounts(), none = SONGS.filter(x => !x.genres.length).length;
       console.info("[AZT] 장르 — " + GENRE_OPTIONS.map(g => g + " " + (gc[g] || 0)).join(" · ") + " · (장르 없음 " + none + ")"
         + (Object.keys(UNMAPPED_GENRES).length ? " · 안 잡힌 표기 " + Object.keys(UNMAPPED_GENRES).length + "종 → AZT_DEBUG.catalogReport()" : "")); }
@@ -1173,8 +1088,6 @@ function daysSince(ts) {   // Firestore Timestamp → 경과일. 시각을 모�
 let GLOBAL_FB    = {};     // song_id → 전체 사용자 피드백 점수 (대략 -1 ~ +1)
 let AUTH_MODE = "login";   // 모달 1단계 모드: login | signup
 let OB_TRACKS = [];        // 온보딩에서 고른 선호곡 (SONGS 항목 참조)
-let OB_ARTISTS = [];       // 온보딩에서 고른 선호 가수 (ARTIST_INDEX 항목 참조)
-let OB_PICKER = null;
 let LAST_HANDLED = null;   // handleUserChange 중복 실행 방지 키
 let AUTH_ACTION = false;   // 사용자가 방금 직접 로그인/가입을 했는지 (세션 복원과 구분)
 
@@ -1332,8 +1245,6 @@ async function handleUserChange(user, force) {
   if (!user || user.isAnonymous) {
     /* 로그아웃: 개인화 상태를 비워 다른 사람 데이터가 남지 않게 하고, 내 방을 게스트 화면으로 전환 */
     LIKED_SONGS = new Set(); DISLIKED_SONGS = new Set(); PLAYLIST_SONGS = new Set(); PLAYLIST_NOTES = {};
-    WALL_META = {}; WALL_ARTISTS = []; WALL_FILTER = "all"; LEGACY_ARTISTS_DONE = false; LEGACY_UNMATCHED = [];
-    if (typeof closeWallPanel === "function") closeWallPanel();
     LISTEN_HISTORY = [];
     updateAuthUI(user);
     if (typeof renderMyAzt === "function") renderMyAzt();
@@ -1371,19 +1282,6 @@ function applyProfile(p) {
   DISLIKED_SONGS = new Set(Array.isArray(p && p.dislikedSongs) ? p.dislikedSongs : []);
   PLAYLIST_SONGS = new Set(Array.isArray(p && p.playlists) ? p.playlists : []);
   PLAYLIST_NOTES = (p && typeof p.playlistNotes === "object" && p.playlistNotes) || {};
-  /* [10차] 벽 출처·가수 메모지. 온보딩 선호곡은 벽의 첫 메모지다 — 예전 가입자는 favorite_tracks 가
-     playlists 에 없으므로 여기서 합쳐 보여 준다(저장은 다음에 벽을 고칠 때 함께 된다). */
-  WALL_META = {};
-  if (p && p.wallMeta && typeof p.wallMeta === "object")
-    for (const [id, m] of Object.entries(p.wallMeta)) if (m && typeof m === "object") WALL_META[id] = { src: m.src || "playlist", at: m.at || null };
-  WALL_ARTISTS = (Array.isArray(p && p.wallArtists) ? p.wallArtists : [])
-    .filter(a => a && typeof a.name === "string" && a.name.trim())
-    .map(a => ({ name: a.name.trim(), src: a.src || "search", at: a.at || null }));
-  for (const id of (Array.isArray(p && p.favorite_tracks) ? p.favorite_tracks : [])) {
-    PLAYLIST_SONGS.add(id);
-    if (!WALL_META[id]) WALL_META[id] = { src: "onboarding", at: null };
-  }
-  LEGACY_ARTISTS_DONE = false; LEGACY_UNMATCHED = [];
   if (p && Array.isArray(p.preferred_genres)) SELECTED_GENRES = [...p.preferred_genres];
   if (p && p.recommend_minutes) RECOMMEND_MINUTES = Number(p.recommend_minutes) || 30;
   syncMinuteReadouts();
@@ -1400,14 +1298,7 @@ function initOnboardingUI() {
     b.addEventListener("click", () => b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"));
     box.appendChild(b);
   });
-  OB_PICKER = mountPicker($("obPicker"), {
-    inputId: "obPickInput", label: null, placeholder: "가수나 곡 이름으로 검색",
-    addLabel: "고르기", onLabel: "골랐어요",
-    songOn: id => OB_TRACKS.some(t => t.id === id),
-    artistOn: key => OB_ARTISTS.some(a => a.key === key),
-    onSong: s => { if (OB_TRACKS.length >= 5) return "곡은 5개까지 고를 수 있어요."; OB_TRACKS.push(s); renderPickedTracks(); },
-    onArtist: a => { if (OB_ARTISTS.length >= 5) return "가수는 5명까지 고를 수 있어요."; OB_ARTISTS.push(a); renderPickedTracks(); },
-  });
+  $("obTrackSearch").addEventListener("input", renderTrackSearch);
   $("obSave").addEventListener("click", saveOnboarding);
   /* 저장이 실패해도 이 취향으로 세션을 이어갈 수 있게 (Firestore 없이 로컬 적용) */
   $("obForce").addEventListener("click", () => {
@@ -1442,10 +1333,9 @@ function initOnboardingUI() {
 }
 
 function openOnboarding() {
-  OB_TRACKS = []; OB_ARTISTS = [];
+  OB_TRACKS = [];
   renderPickedTracks();
-  if (OB_PICKER) OB_PICKER.reset();
-  ensureArtistAliases().then(() => OB_PICKER && OB_PICKER.refresh());
+  $("obTrackResults").innerHTML = "";
   $("obErr").hidden = true;
   $("obForce").hidden = true;
   $("authStep1").hidden = true;
@@ -1453,19 +1343,32 @@ function openOnboarding() {
   $("authModal").hidden = false;
 }
 
+function renderTrackSearch() {
+  const q = $("obTrackSearch").value.trim().toLowerCase();
+  const box = $("obTrackResults");
+  box.innerHTML = "";
+  if (q.length < 1 || !SONGS.length) return;
+  SONGS.filter(s => (s.title + " " + s.artist).toLowerCase().includes(q))
+    .slice(0, 8)
+    .forEach(s => {
+      if (OB_TRACKS.some(t => t.id === s.id)) return;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = "<b>" + esc(s.title) + "</b> — " + esc(s.artist);
+      b.addEventListener("click", () => {
+        if (OB_TRACKS.length >= 5) return;
+        OB_TRACKS.push(s);
+        $("obTrackSearch").value = "";
+        box.innerHTML = "";
+        renderPickedTracks();
+      });
+      box.appendChild(b);
+    });
+}
+
 function renderPickedTracks() {
   const box = $("obTrackPicked");
   box.innerHTML = "";
-  OB_ARTISTS.forEach((a, i) => {
-    const chip = document.createElement("span");
-    chip.className = "is-artist";
-    chip.append(a.name);
-    const x = document.createElement("button");
-    x.type = "button"; x.textContent = "✕"; x.setAttribute("aria-label", a.name + " 제거");
-    x.addEventListener("click", () => { OB_ARTISTS.splice(i, 1); renderPickedTracks(); });
-    chip.appendChild(x);
-    box.appendChild(chip);
-  });
   OB_TRACKS.forEach((s, i) => {
     const chip = document.createElement("span");
     chip.append(s.title);   // append는 텍스트 노드라 esc() 불필요 (이중 이스케이프 방지)
@@ -1475,18 +1378,11 @@ function renderPickedTracks() {
     chip.appendChild(x);
     box.appendChild(chip);
   });
-  if (OB_PICKER) OB_PICKER.refresh();   // 뺀 항목이 결과 목록에서 다시 '고르기'로 돌아오게
 }
 
 function buildOnboardingProfile(user) {
   const genres = [...$("obGenres").querySelectorAll('button[aria-pressed="true"]')].map(b => b.textContent);
-  const artists = OB_ARTISTS.map(a => a.name);   // [10차] 자유 입력 → 검색-선택. 카탈로그 표기 그대로라 추천의 가수 묶음과 바로 맞는다
-  /* 고른 곡·가수는 벽의 첫 메모지가 된다 */
-  const now = new Date().toISOString();
-  const wallMeta = { ...WALL_META };
-  OB_TRACKS.forEach(s => { wallMeta[s.id] = { src: "onboarding", at: now }; });
-  const wallArtists = [...WALL_ARTISTS.filter(w => !OB_ARTISTS.some(a => a.key === artistKeyOf(w.name))),
-                       ...OB_ARTISTS.map(a => ({ name: a.name, src: "onboarding", at: now }))];
+  const artists = $("obArtists").value.split(",").map(a => a.trim()).filter(Boolean);
   /* 취향 벡터: 선호곡들의 6종 태그 평균 — "선호곡의 특성"을 수치로 요약 */
   let taste = null;
   if (OB_TRACKS.length) {
@@ -1502,8 +1398,6 @@ function buildOnboardingProfile(user) {
     preferred_genres: genres,
     preferred_artists: artists,
     favorite_tracks: OB_TRACKS.map(s => s.id),
-    playlists: [...new Set([...PLAYLIST_SONGS, ...OB_TRACKS.map(s => s.id)])],
-    wallMeta, wallArtists,
     lyric_preference_default: $("obLyric").value,
     taste_vector: taste
   };
@@ -1635,19 +1529,17 @@ async function setSongFeedback(songId, kind) {
   } else if (kind === "dislike") {
     if (DISLIKED_SONGS.has(songId)) DISLIKED_SONGS.delete(songId); else { DISLIKED_SONGS.add(songId); LIKED_SONGS.delete(songId); }
   } else if (kind === "playlist") {
-    if (PLAYLIST_SONGS.has(songId)) { PLAYLIST_SONGS.delete(songId); delete PLAYLIST_NOTES[songId]; delete WALL_META[songId]; }
-    else { PLAYLIST_SONGS.add(songId); WALL_META[songId] = { src: "playlist", at: new Date().toISOString() }; }
+    if (PLAYLIST_SONGS.has(songId)) { PLAYLIST_SONGS.delete(songId); delete PLAYLIST_NOTES[songId]; }
+    else PLAYLIST_SONGS.add(songId);
   }
   const patch = {
-    likedSongs: [...LIKED_SONGS], dislikedSongs: [...DISLIKED_SONGS],
-    ...(kind === "playlist" ? wallPatch() : { playlists: [...PLAYLIST_SONGS], playlistNotes: PLAYLIST_NOTES })
+    likedSongs: [...LIKED_SONGS], dislikedSongs: [...DISLIKED_SONGS], playlists: [...PLAYLIST_SONGS],
+    playlistNotes: PLAYLIST_NOTES
   };
-  USER_PROFILE = { ...(USER_PROFILE || {}), ...patch };   // 저장이 실패해도 이번 세션 추천에는 반영
   await persistPreferencePatch(patch);
   const local = readLocalPersonal(); writeLocalPersonal({ ...local, ...patch });
   if (firebase.auth().currentUser && !firebase.auth().currentUser.isAnonymous) {
-    if (kind !== "playlist" || PLAYLIST_SONGS.has(songId))   // [10차] 떼어낼 때는 playlist_add 를 남기지 않는다 (이전에는 뗄 때도 +1 이 찍혔다)
-      logEvent(kind === "like" ? "like" : kind === "dislike" ? "dislike" : "playlist_add", { song_id: songId });
+    logEvent(kind === "like" ? "like" : kind === "dislike" ? "dislike" : "playlist_add", { song_id: songId });
   }
   renderMyAzt();
   refreshSongActions(songId);
@@ -1776,291 +1668,6 @@ function listeningPct(songId) {
   const m = TRACK_METRICS[songId];
   return m && m.durationSec ? Math.min(1, m.listenedSeconds / m.durationSec) : 0;
 }
-/* ==========================================================================
-   [10차] 가수 목록 · 별칭 · 검색 · 벽에 붙이기
-   --------------------------------------------------------------------------
-   · 카탈로그의 artist 는 여러 명이면 "A;B;C" 한 문자열 → 가수 한 명 단위로 쪼개 목록을 만든다.
-   · 카탈로그 표기는 한글("아이유"), Spotify 표기는 영문("IU"). 같은 곡의 두 표기를
-     data/export_names.json 에서 짝지어 별칭을 자동으로 얻는다(손으로 만든 표 없음).
-     순서가 어긋난 곡에서 생기는 오답을 막으려고 '서로가 서로의 1순위'인 짝만 채택한다.
-   · 검색 부품(mountPicker) 하나를 온보딩과 벽에 붙이기가 같이 쓴다.
-   ========================================================================== */
-const splitArtists = a => String(a || "").split(";").map(x => x.trim()).filter(Boolean);
-const artistKeyOf = n => String(n || "").trim().toLowerCase().replace(/\s+/g, "");          // 엔진 artistKey 와 같은 식
-const normText = t => String(t || "").normalize("NFKC").toLowerCase().replace(/[\s.,'’`"\-_()\[\]!?&·:;\/]+/g, "");
-
-let ARTIST_INDEX = new Map();     // key → { key, name, songIds[], aliases[], hay[] }
-let ALIAS_TO_KEY = new Map();     // 별칭 key → 가수 key
-let SONG_ALT = {};                // song_id → 다른 표기의 제목(정규화)
-let ALIASES_APPLIED = false;
-let LEGACY_ARTISTS_DONE = false;
-let LEGACY_UNMATCHED = [];
-
-function buildArtistIndex() {
-  ARTIST_INDEX = new Map();
-  for (const s of SONGS) for (const name of splitArtists(s.artist)) {
-    const key = artistKeyOf(name);
-    if (!key) continue;
-    let e = ARTIST_INDEX.get(key);
-    if (!e) { e = { key, name, songIds: [], aliases: [], hay: [normText(name)] }; ARTIST_INDEX.set(key, e); }
-    e.songIds.push(s.id);
-  }
-  ALIASES_APPLIED = false;
-}
-
-/* 같은 곡의 (카탈로그 가수, Spotify 가수)를 자리 순서대로 짝지어 표를 센 뒤, 서로 1순위인 짝만 별칭으로 삼는다 */
-function deriveArtistAliases(songs, names) {
-  const votes = new Map();   // "koKey\u0001enName" → n
-  for (const s of songs) {
-    const ko = splitArtists(s.artist);
-    const en = names && names[s.id] && names[s.id].spotify && names[s.id].spotify.a;
-    if (!Array.isArray(en) || en.length !== ko.length) continue;
-    ko.forEach((k, i) => {
-      const e = String(en[i] || "").trim();
-      if (!e || artistKeyOf(k) === artistKeyOf(e)) return;
-      const id = artistKeyOf(k) + "\u0001" + e;
-      votes.set(id, (votes.get(id) || 0) + 1);
-    });
-  }
-  const bestForKo = new Map(), bestForEn = new Map();
-  for (const [id, n] of votes) {
-    const [k, e] = id.split("\u0001"), ek = artistKeyOf(e);
-    if (!bestForKo.has(k) || bestForKo.get(k).n < n) bestForKo.set(k, { e, n });
-    if (!bestForEn.has(ek) || bestForEn.get(ek).n < n) bestForEn.set(ek, { k, n });
-  }
-  const out = [];
-  for (const [k, { e }] of bestForKo) if (bestForEn.get(artistKeyOf(e)).k === k) out.push({ key: k, alias: e });
-  return out;
-}
-
-async function ensureArtistAliases() {
-  if (ALIASES_APPLIED || !SONGS.length) return;
-  if (!ARTIST_INDEX.size) buildArtistIndex();
-  const names = await loadExportNames();
-  if (!names) return;                       // 파일을 못 받아도 한글 표기 검색은 그대로 된다
-  ALIAS_TO_KEY = new Map();
-  for (const { key, alias } of deriveArtistAliases(SONGS, names)) {
-    const e = ARTIST_INDEX.get(key);
-    if (!e || ARTIST_INDEX.has(artistKeyOf(alias))) continue;   // 별칭이 다른 가수의 본이름이면 쓰지 않는다
-    e.aliases.push(alias); e.hay.push(normText(alias));
-    ALIAS_TO_KEY.set(artistKeyOf(alias), key);
-  }
-  SONG_ALT = {};
-  for (const s of SONGS) { const t = names[s.id] && names[s.id].spotify && names[s.id].spotify.t; if (t) SONG_ALT[s.id] = normText(t); }
-  ALIASES_APPLIED = true;
-}
-
-/* 사용자가 적은 이름 → 카탈로그의 가수. 없으면 null */
-function findArtist(name) {
-  const k = artistKeyOf(name);
-  return ARTIST_INDEX.get(k) || ARTIST_INDEX.get(ALIAS_TO_KEY.get(k)) || null;
-}
-
-/* 검색: 가수(이름·별칭)와 곡(제목·다른 표기 제목·참여 가수)을 한 번에. 앞글자 일치가 먼저, 그다음은 곡 수·인기순 */
-function searchCatalog(q, limits) {
-  const nq = normText(q), lim = limits || { artists: 5, songs: 12 };
-  if (!nq) return { artists: [], songs: [], aliasHit: null };
-  const artists = [];
-  for (const e of ARTIST_INDEX.values()) {
-    let rank = -1;
-    e.hay.forEach((h, i) => { if (h.includes(nq)) { const r = (h.startsWith(nq) ? 0 : 2) + (i ? 1 : 0); if (rank < 0 || r < rank) rank = r; } });
-    if (rank >= 0) artists.push({ e, rank, byAlias: !e.hay[0].includes(nq) });
-  }
-  artists.sort((a, b) => a.rank - b.rank || b.e.songIds.length - a.e.songIds.length || a.e.name.localeCompare(b.e.name));
-  /* 곡 순서: 제목이 검색어로 시작 → 이름이 검색어로 시작하는 가수의 곡 → 제목 중간에 포함 → 그 밖에 걸린 가수의 곡.
-     ("IU" 를 쳤을 때 제목 어딘가에 iu 가 든 곡이 아이유 곡보다 위에 오지 않게) */
-  const strongKeys = new Set(artists.filter(a => a.rank <= 1).map(a => a.e.key));
-  const hitKeys = new Set(artists.map(a => a.e.key));
-  const songs = [];
-  for (const s of SONGS) {
-    const t = normText(s.title), alt = SONG_ALT[s.id] || "", keys = splitArtists(s.artist).map(artistKeyOf);
-    let rank = -1;
-    if (t.startsWith(nq) || alt.startsWith(nq)) rank = 0;
-    else if (keys.some(k => strongKeys.has(k))) rank = 1;
-    else if (t.includes(nq) || alt.includes(nq)) rank = 2;
-    else if (keys.some(k => hitKeys.has(k))) rank = 3;
-    if (rank >= 0) songs.push({ s, rank });
-  }
-  songs.sort((a, b) => a.rank - b.rank || (b.s.popularity || 0) - (a.s.popularity || 0) || a.s.title.localeCompare(b.s.title));
-  const top = artists[0];
-  return { artists: artists.slice(0, lim.artists).map(a => a.e), songs: songs.slice(0, lim.songs).map(x => x.s),
-           moreSongs: Math.max(0, songs.length - lim.songs),
-           aliasHit: top && top.byAlias ? top.e : null };
-}
-
-const ICON_RECORD = size => "<svg width='" + size + "' height='" + size + "' viewBox='0 0 44 44' fill='none' stroke-width='1' aria-hidden='true'><circle cx='22' cy='22' r='21'/><circle cx='22' cy='22' r='15'/><circle cx='22' cy='22' r='9'/><circle cx='22' cy='22' r='2' fill='currentColor'/></svg>";
-const showArtists = a => splitArtists(a).join(", ");
-
-/* 검색-선택 부품. opts: { inputId, label, placeholder, addLabel, onLabel, songOn(id), artistOn(key),
-   onSong(song), onArtist(entry) } — onSong/onArtist 가 문자열을 돌려주면 안내문으로 보여 준다(예: 개수 제한). */
-function mountPicker(root, opts) {
-  if (!root) return null;
-  root.classList.add("picker");
-  root.innerHTML = (opts.label ? "<label for='" + opts.inputId + "'>" + esc(opts.label) + "</label>" : "")
-    + "<div class='picker-field'><svg width='18' height='18' viewBox='0 0 18 18' fill='none' stroke-width='1.5' aria-hidden='true'><circle cx='8' cy='8' r='5.5'/><path d='M12.2 12.2L16 16'/></svg>"
-    + "<input id='" + opts.inputId + "' type='text' autocomplete='off' autocapitalize='off' spellcheck='false' placeholder='" + esc(opts.placeholder || "") + "'></div>"
-    + "<p class='picker-hint' aria-live='polite'></p><div class='picker-results'></div>";
-  const input = root.querySelector("input"), hint = root.querySelector(".picker-hint"), box = root.querySelector(".picker-results");
-  let notice = "";
-  const row = (kind, id, title, sub, on) =>
-    "<div class='picker-row'>" + (kind === "artist" ? ICON_RECORD(36) : "")
-    + "<div class='pr-text'><b>" + esc(title) + "</b><span>" + esc(sub) + "</span></div>"
-    + "<button type='button' data-pick='" + kind + "' data-id='" + esc(id) + "'" + (on ? " disabled" : "") + ">" + esc(on ? opts.onLabel : opts.addLabel) + "</button></div>";
-  function render() {
-    const q = input.value.trim();
-    if (!q) { box.innerHTML = ""; hint.textContent = notice; return; }
-    if (!SONGS.length) { box.innerHTML = "<div class='picker-none'>곡 목록을 불러오는 중이에요. 잠시 뒤에 다시 검색해 주세요.</div>"; return; }
-    const r = searchCatalog(q);
-    hint.textContent = notice || (r.aliasHit ? "‘" + q + "’는 카탈로그에 " + r.aliasHit.name + "(으)로 들어 있어요" : "");
-    if (!r.artists.length && !r.songs.length) { box.innerHTML = "<div class='picker-none'>카탈로그에 아직 없는 곡·가수예요.</div>"; return; }
-    box.innerHTML =
-      (r.artists.length ? "<div class='picker-sec'><h4>Artist · " + r.artists.length + "</h4>"
-        + r.artists.map(e => row("artist", e.key, e.name, (e.aliases[0] ? e.aliases[0] + " · " : "") + "카탈로그 " + e.songIds.length + "곡", opts.artistOn(e.key))).join("") + "</div>" : "")
-      + (r.songs.length ? "<div class='picker-sec'><h4>Song · " + (r.songs.length + r.moreSongs) + "</h4>"
-        + r.songs.map(s => row("song", s.id, s.title, showArtists(s.artist), opts.songOn(s.id))).join("")
-        + (r.moreSongs ? "<p class='picker-hint'>" + r.moreSongs + "곡이 더 있어요. 제목을 더 적으면 좁혀져요.</p>" : "") + "</div>" : "");
-  }
-  input.addEventListener("input", () => { notice = ""; render(); });
-  box.addEventListener("click", async ev => {
-    const b = ev.target.closest("button[data-pick]");
-    if (!b || b.disabled) return;
-    b.disabled = true;
-    const res = b.dataset.pick === "artist" ? await opts.onArtist(ARTIST_INDEX.get(b.dataset.id)) : await opts.onSong(songById(b.dataset.id));
-    notice = typeof res === "string" ? res : "";
-    render();
-  });
-  return { refresh: render, reset() { input.value = ""; notice = ""; render(); }, focus() { try { input.focus(); } catch (_) {} } };
-}
-
-/* ── 벽 저장 ── 기존 필드와 새 필드를 항상 같이 쓴다(한쪽만 바뀌어 어긋나지 않게) */
-function preferredArtistNames() {
-  const out = [], seen = new Set();
-  /* 예전에 손으로 적은 이름은 카탈로그와 맞춰 보기 전까지(내 방을 열기 전) 그대로 보존한다 */
-  const legacy = LEGACY_ARTISTS_DONE ? LEGACY_UNMATCHED : ((USER_PROFILE && USER_PROFILE.preferred_artists) || []);
-  for (const n of [...WALL_ARTISTS.map(a => a.name), ...legacy]) {
-    const k = artistKeyOf(n); if (k && !seen.has(k)) { seen.add(k); out.push(n); }
-  }
-  return out;
-}
-function wallPatch() {
-  const fav = ((USER_PROFILE && USER_PROFILE.favorite_tracks) || []).filter(id => PLAYLIST_SONGS.has(id));
-  for (const id of PLAYLIST_SONGS) { const m = WALL_META[id]; if (m && m.src !== "playlist" && !fav.includes(id)) fav.push(id); }
-  const meta = {}; for (const id of PLAYLIST_SONGS) if (WALL_META[id]) meta[id] = WALL_META[id];
-  return { playlists: [...PLAYLIST_SONGS], playlistNotes: PLAYLIST_NOTES, wallMeta: meta, wallArtists: WALL_ARTISTS,
-           favorite_tracks: fav, preferred_artists: preferredArtistNames() };
-}
-async function saveWall() {
-  const patch = wallPatch();
-  USER_PROFILE = { ...(USER_PROFILE || {}), ...patch };
-  await persistPreferencePatch(patch);
-  const local = readLocalPersonal(); writeLocalPersonal({ ...local, ...patch });
-  renderMyAzt();
-}
-async function wallAttachSong(song) {
-  if (!song || !requireLogin("벽에 붙이기")) return;
-  if (PLAYLIST_SONGS.has(song.id)) return;
-  PLAYLIST_SONGS.add(song.id);
-  WALL_META[song.id] = { src: "search", at: new Date().toISOString() };
-  await saveWall();
-  logEvent("playlist_add", { song_id: song.id, source: "search" });
-  refreshSongActions(song.id);
-}
-async function wallAttachArtist(entry) {
-  if (!entry || !requireLogin("벽에 붙이기")) return;
-  if (WALL_ARTISTS.some(a => artistKeyOf(a.name) === entry.key)) return;
-  WALL_ARTISTS.push({ name: entry.name, src: "search", at: new Date().toISOString() });
-  await saveWall();
-}
-async function wallDetachArtist(key) {
-  WALL_ARTISTS = WALL_ARTISTS.filter(a => artistKeyOf(a.name) !== key);
-  if (USER_PROFILE && Array.isArray(USER_PROFILE.preferred_artists))   // 뗀 가수가 예전 표기로 남아 되살아나지 않게
-    USER_PROFILE.preferred_artists = USER_PROFILE.preferred_artists.filter(n => { const e = findArtist(n); return (e ? e.key : artistKeyOf(n)) !== key; });
-  await saveWall();
-}
-/* 예전 온보딩에서 손으로 적은 가수 → 카탈로그에서 찾아지면 가수 메모지로, 아니면 안내만. 프로필당 한 번. */
-async function adoptLegacyArtists() {
-  if (LEGACY_ARTISTS_DONE || !isMember() || !ARTIST_INDEX.size) return;
-  LEGACY_ARTISTS_DONE = true;
-  const typed = (USER_PROFILE && USER_PROFILE.preferred_artists) || [];
-  let changed = false; LEGACY_UNMATCHED = [];
-  for (const n of typed) {
-    const e = findArtist(n);
-    if (!e) { LEGACY_UNMATCHED.push(n); continue; }
-    if (!WALL_ARTISTS.some(a => artistKeyOf(a.name) === e.key)) { WALL_ARTISTS.push({ name: e.name, src: "onboarding", at: null }); changed = true; }
-    else if (e.name !== n) changed = true;
-  }
-  if (changed) await saveWall();
-}
-
-let WALL_PICKER = null;
-function openWallPanel() {
-  if (!requireLogin("벽에 붙이기")) return;
-  const panel = $("wallPanel"); if (!panel) return;
-  if (!WALL_PICKER) WALL_PICKER = mountPicker($("wallPicker"), {
-    inputId: "wallSearch", label: "곡이나 가수 이름", placeholder: "예: 아이유, 밤편지",
-    addLabel: "붙이기", onLabel: "붙어 있음",
-    songOn: id => PLAYLIST_SONGS.has(id),
-    artistOn: key => WALL_ARTISTS.some(a => artistKeyOf(a.name) === key),
-    onSong: wallAttachSong, onArtist: wallAttachArtist,
-  });
-  panel.hidden = false; document.body.classList.add("wall-open");
-  WALL_PICKER.refresh(); WALL_PICKER.focus();
-  ensureArtistAliases().then(() => WALL_PICKER.refresh());
-}
-function closeWallPanel() {
-  const panel = $("wallPanel"); if (panel) panel.hidden = true;
-  document.body.classList.remove("wall-open");
-}
-
-const WALL_SRC_LABEL = { onboarding: "First pick", search: "Searched", playlist: "Playlist" };
-function renderWall(pl) {
-  const songs = [...PLAYLIST_SONGS].map(songById).filter(Boolean)
-    .map((s, i) => ({ kind: "song", s, at: (WALL_META[s.id] && WALL_META[s.id].at) || "", i }));
-  const artists = WALL_ARTISTS.map((a, i) => ({ kind: "artist", a, at: a.at || "", i: 100000 + i }));
-  /* 최근에 붙인 것이 앞. 시각이 없는 예전 메모지는 저장된 순서대로 뒤에 */
-  const all = [...songs, ...artists].sort((x, y) => (y.at > x.at ? 1 : y.at < x.at ? -1 : x.i - y.i));
-  const shown = all.filter(m => WALL_FILTER === "all" || m.kind === WALL_FILTER);
-  const chip = (id, label, n) => "<button type='button' data-wall-filter='" + id + "' aria-pressed='" + (WALL_FILTER === id) + "'>" + label + " " + n + "</button>";
-  let html = "<div class='wall-bar'><div class='wall-filter' role='group' aria-label='메모지 종류'>"
-    + chip("all", "전체", all.length) + chip("song", "곡", songs.length) + chip("artist", "가수", artists.length)
-    + "</div><button type='button' class='wall-add' id='wallAddBtn'><span aria-hidden='true'>＋</span> 곡·가수 찾아 붙이기</button></div><div class='wall'>";
-  if (!shown.length) {
-    html += "<div class='wall-empty'>" + (all.length ? "이 종류의 메모지는 아직 없어요." : "아직 비어 있는 벽이에요.<br/>좋아하는 곡이나 가수를 찾아 첫 메모지를 붙여보세요.") + "</div>";
-  } else html += shown.map(m => {
-    if (m.kind === "artist") {
-      const e = findArtist(m.a.name), key = artistKeyOf(m.a.name);
-      return "<article class='note note-artist-card'><span class='tape' aria-hidden='true'></span>"
-        + "<span class='note-src'>" + WALL_SRC_LABEL[m.a.src === "onboarding" ? "onboarding" : "search"] + " · Artist</span>"
-        + "<div class='note-name'><b>" + esc(m.a.name) + "</b>" + ICON_RECORD(44) + "</div>"
-        + "<div class='note-foot'><span class='note-count'>" + (e ? "카탈로그 " + e.songIds.length + "곡" : "") + "</span>"
-        + "<button class='note-peel' type='button' data-remove-artist='" + esc(key) + "' aria-label='" + esc(m.a.name) + " 떼어내기'>떼어내기</button></div></article>";
-    }
-    const s = m.s, memo = PLAYLIST_NOTES[s.id] || "", src = (WALL_META[s.id] && WALL_META[s.id].src) || "playlist";
-    return "<article class='note'><span class='tape' aria-hidden='true'></span>"
-      + "<span class='note-src'>" + (WALL_SRC_LABEL[src] || WALL_SRC_LABEL.playlist) + "</span>"
-      + "<b>" + esc(s.title) + "</b><span class='note-artist'>" + esc(showArtists(s.artist)) + "</span>"
-      + "<textarea class='note-memo' maxlength='80' data-note-memo='" + esc(s.id) + "' placeholder='한 줄 기록 남기기' aria-label='" + esc(s.title) + " 메모'>" + esc(memo) + "</textarea>"
-      + "<div class='note-foot'>" + (s.spotifyUrl ? "<a class='spotify' data-song-id='" + esc(s.id) + "' href='" + s.spotifyUrl + "' target='_blank' rel='noopener'>듣기</a>" : "<span></span>")
-      + "<button class='note-peel' type='button' data-remove-play='" + esc(s.id) + "' aria-label='" + esc(s.title) + " 떼어내기'>떼어내기</button></div></article>";
-  }).join("");
-  html += "</div>";
-  if (LEGACY_UNMATCHED.length)
-    html += "<p class='wall-legacy'>가입할 때 적은 가수 중 " + esc(LEGACY_UNMATCHED.join(", ")) + "은(는) 아직 카탈로그에 없어 메모지로 붙이지 못했어요.</p>";
-  pl.innerHTML = html;
-  pl.querySelectorAll("[data-wall-filter]").forEach(b => b.addEventListener("click", () => { WALL_FILTER = b.dataset.wallFilter; renderWall(pl); }));
-  $("wallAddBtn").addEventListener("click", openWallPanel);
-  pl.querySelectorAll("[data-remove-play]").forEach(b => b.addEventListener("click", () => setSongFeedback(b.dataset.removePlay, "playlist")));
-  pl.querySelectorAll("[data-remove-artist]").forEach(b => b.addEventListener("click", () => wallDetachArtist(b.dataset.removeArtist)));
-  pl.querySelectorAll("[data-note-memo]").forEach(ta => ta.addEventListener("blur", async () => {
-    const id = ta.dataset.noteMemo, text = ta.value.trim();
-    if ((PLAYLIST_NOTES[id] || "") === text) return;
-    if (text) PLAYLIST_NOTES[id] = text; else delete PLAYLIST_NOTES[id];
-    await persistPreferencePatch({ playlistNotes: PLAYLIST_NOTES });
-    const local = readLocalPersonal(); writeLocalPersonal({ ...local, playlistNotes: PLAYLIST_NOTES });
-  }));
-  if (WALL_PICKER && !$("wallPanel").hidden) WALL_PICKER.refresh();   // 벽에서 뗀 것이 검색 결과에서 다시 '붙이기'로
-}
-
 function renderMyAzt() {
   const sec = $("myAzt"); if (!sec || sec.hidden) return;
   const guest = !firebase.auth().currentUser;
@@ -2072,10 +1679,35 @@ function renderMyAzt() {
   syncMinuteReadouts();
   const lyricInput=$("myLyric"); if(lyricInput) lyricInput.value=$("lyric")?.value||USER_PROFILE?.lyric_preference_default||"no_preference";
   const ge=$("myGenreEdit"); if(ge){ ge.innerHTML=GENRE_OPTIONS.map(g=>"<button type='button' aria-pressed='"+SELECTED_GENRES.includes(g)+"' data-my-genre='"+esc(g)+"'>"+esc(g)+"</button>").join(""); ge.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{const g=b.dataset.myGenre;if(SELECTED_GENRES.includes(g))SELECTED_GENRES=SELECTED_GENRES.filter(x=>x!==g);else SELECTED_GENRES=[...SELECTED_GENRES,g];b.setAttribute("aria-pressed",String(SELECTED_GENRES.includes(g)));renderGenreChips();})); }
-  renderWall($("myPlaylist"));
+  const pl = $("myPlaylist");
+  const ps = [...PLAYLIST_SONGS].map(songById).filter(Boolean);
+  /* 포스트잇 벽: 곡 id 해시로 기울기를 정해 렌더마다 같은 자리에 같은 각도로 붙어 있게 한다 */
+  const tilt = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 997;
+                         return { rot: ((h % 50) / 10 - 2.5).toFixed(1), tape: ((h % 17) - 8) }; };
+  if (!ps.length) {
+    pl.innerHTML = "<div class='wall'><div class='wall-empty'>아직 비어 있는 벽이에요.<br/>감상에서 「벽에 붙이기」로 첫 메모지를 붙여보세요.</div></div>";
+  } else {
+    pl.innerHTML = "<div class='wall'>" + ps.map(s => {
+      const t = tilt(s.id), memo = PLAYLIST_NOTES[s.id] || "";
+      return "<article class='note' style='--rot:" + t.rot + "deg;--tape:" + t.tape + "deg'>"
+        + "<span class='tape' aria-hidden='true'></span>"
+        + "<b>" + esc(s.title) + "</b><span class='note-artist'>" + esc(s.artist) + "</span>"
+        + "<textarea class='note-memo' maxlength='80' data-note-memo='" + esc(s.id) + "' placeholder='이 곡의 한 줄 기록…' aria-label='" + esc(s.title) + " 메모'>" + esc(memo) + "</textarea>"
+        + "<div class='note-foot'>" + (s.spotifyUrl ? "<a class='spotify' data-song-id='" + esc(s.id) + "' href='" + s.spotifyUrl + "' target='_blank' rel='noopener'>듣기</a>" : "<span></span>")
+        + "<button class='note-peel' type='button' data-remove-play='" + esc(s.id) + "'>떼어내기</button></div></article>";
+    }).join("") + "</div>";
+  }
+  pl.querySelectorAll("[data-remove-play]").forEach(b => b.addEventListener("click", () => setSongFeedback(b.dataset.removePlay, "playlist")));
+  pl.querySelectorAll("[data-note-memo]").forEach(ta => ta.addEventListener("blur", async () => {
+    const id = ta.dataset.noteMemo, text = ta.value.trim();
+    if ((PLAYLIST_NOTES[id] || "") === text) return;
+    if (text) PLAYLIST_NOTES[id] = text; else delete PLAYLIST_NOTES[id];
+    await persistPreferencePatch({ playlistNotes: PLAYLIST_NOTES });
+    const local = readLocalPersonal(); writeLocalPersonal({ ...local, playlistNotes: PLAYLIST_NOTES });
+  }));
   const hi = $("myHistory");
   hi.innerHTML = LISTEN_HISTORY.slice(0,6).map(h => { const s=songById(h.songId); return "<div class='history-row'><span>"+(s?esc(s.title):esc(h.songId))+"</span><span>"+Math.round((h.completionRate||0)*100)+"%</span></div>"; }).join("") || "<p>아직 기록이 없어요.</p>";
-  const fs=$("myFeedbackSummary"); if(fs) fs.textContent = "좋아요 " + LIKED_SONGS.size + " · 싫어요 " + DISLIKED_SONGS.size + " · 벽 " + (PLAYLIST_SONGS.size + WALL_ARTISTS.length);
+  const fs=$("myFeedbackSummary"); if(fs) fs.textContent = "좋아요 " + LIKED_SONGS.size + " · 싫어요 " + DISLIKED_SONGS.size + " · 벽 " + PLAYLIST_SONGS.size;
 }
 /* 시간 슬라이더 표시값 동기화: 값이 코드로 바뀔 때도 숫자가 함께 바뀌게 */
 function syncMinuteReadouts(){
@@ -2097,7 +1729,6 @@ async function saveMyPrefs(){
 async function openMyAzt() {
   const sec = $("myAzt"); if (!sec) return;
   sec.hidden = false; renderMyAzt(); goScene("myAzt");
-  ensureArtistAliases().then(adoptLegacyArtists).then(renderMyAzt).catch(e => console.warn("가수 목록 준비 실패:", e));
 }
 
 async function loadPersonalFeedback(uid) {
@@ -2268,10 +1899,7 @@ function buildHeardItems() {
                  reason: DISLIKE_REASONS[id] || null, artist: c.artist, genres: c.genres, feature_bins: c.feature_bins, days: d });
   }
   /* 온보딩에서 적은 선호 가수·장르: 곡 없이 '그 묶음에 좋아요 1건'. 좋아요 한 번과 같은 무게로 둔다. */
-  for (const a of ((USER_PROFILE && USER_PROFILE.preferred_artists) || [])) if (a) {
-    const e = findArtist(a);                                   // "IU" 로 적었어도 카탈로그의 "아이유" 묶음에 센다
-    items.push({ liked: true, artist: e ? e.name : a, days: 0 });
-  }
+  for (const a of ((USER_PROFILE && USER_PROFILE.preferred_artists) || [])) if (a) items.push({ liked: true, artist: a, days: 0 });
   for (const g of ((USER_PROFILE && USER_PROFILE.preferred_genres) || [])) if (g) items.push({ liked: true, genres: [g], days: 0 });
   return items;
 }
@@ -2301,7 +1929,7 @@ function buildUserProfile() {
   for (const id of LIKED_SONGS)     song_feedback[id] = { pos: 3, neg: 0, last_days: STATE_DAYS[id] || 0 };
   for (const id of PLAYLIST_SONGS)  song_feedback[id] = song_feedback[id] || { pos: 2, neg: 0, last_days: STATE_DAYS[id] || 0 };
   for (const a of ((USER_PROFILE && USER_PROFILE.preferred_artists) || [])) {
-    if (a) artist_affinity[AZT_ENGINE.artistKey((findArtist(a) || { name: a }).name)] = { pos: 5, neg: 0, last_days: 0 };   // 엔진 2.3.1: 가수 키는 artistKey()
+    if (a) artist_affinity[a] = { pos: 5, neg: 0, last_days: 0 };
   }
   for (const g of ((USER_PROFILE && USER_PROFILE.preferred_genres) || [])) {
     if (g) genre_affinity[g] = { pos: 5, neg: 0, last_days: 0 };
@@ -3085,7 +2713,6 @@ async function recommend() {
   const engineInput = {
     now:    { V: cur.v, A: cur.e },
     target: { V: tgt.v, A: tgt.e },
-    stress: deriveStress(cur),       // 0~4
     load:   deriveContextLoad(),     // 미수집(null) — stress 와 끝까지 분리된 축
     genres: SELECTED_GENRES,
     duration_min: RECOMMEND_MINUTES,
@@ -3471,9 +3098,6 @@ $("results").addEventListener("click", (e) => {
 });
 $("myAztBtn").addEventListener("click", openMyAzt);
 $("closeMyAzt").addEventListener("click", () => { $("myAzt").hidden = true; goScene("ground"); });
-$("wallPanelClose")?.addEventListener("click", closeWallPanel);
-$("wallPanelDone")?.addEventListener("click", closeWallPanel);
-document.addEventListener("keydown", e => { if (e.key === "Escape" && $("wallPanel") && !$("wallPanel").hidden) closeWallPanel(); });
 $("myGuestLogin")?.addEventListener("click", () => openAuthModal("login"));
 $("listenTime").addEventListener("input", () => { RECOMMEND_MINUTES=Number($("listenTime").value)||30; const o=$("listenTimeOut"); if(o) o.textContent=$("listenTime").value; });
 $("paceChips").addEventListener("click", (e) => {
@@ -3568,7 +3192,6 @@ function goScene(id) {
   if (i < 0) return;
   currentSceneIndex = i;
   visitedScenes.add(i);
-  if (id !== "myAzt" && typeof closeWallPanel === "function") closeWallPanel();
   applyScenes();
   if (id === "myAzt" && typeof renderMyAzt === "function") renderMyAzt();
 }
