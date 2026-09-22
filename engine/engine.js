@@ -24,8 +24,13 @@
                        (2) 벽에 붙인 곡·가수(items.pinned)는 좋아요와 같은 무게로 세되 시간 감쇠하지 않는다.
                        (3) 가수 "A;B;C" 다중 표기를 쪼개 각 가수에 표를 준다(artistKeys). 협업곡 좋아요가 단독 가수로 넘어간다.
                        (4) 선호를 동률 깨기에서 비용 항으로 승격 — cost += preference.pref_weight(μ) × (내 중립점 − 선호 점수).
-                           μ=0 이면 2.4.0 과 결과 동일(회귀 확인). μ 값은 스윕으로 정한다. */
-export const ENGINE_VERSION = "2.5.0";
+                           μ=0 이면 2.4.0 과 결과 동일(회귀 확인). μ 값은 스윕으로 정한다.
+   2.5.1 (2026-09-22): 목표 도착 후 '머무름' 구간의 지그재그 제거 — (1) 그 구간(경유지 = 목표 좌표 그 자체)의 탐색 비용은
+                       밴드로 뭉치지 않고 실제 거리를 그대로 쓴다(밴드는 이동 구간에서만). (2) 그리디 탐색은 먼저 뽑힌 곡이
+                       가장 가깝고 뒤로 갈수록 남은 후보 중 상대적으로 먼 곡이 걸리는 구조라, 이 구간만 사후에 '먼 것→가까운
+                       것'으로 재배열해 마지막 곡이 항상 가장 가깝게(=도착) 끝나도록 한다. 곡 집합은 그대로, 순서만 바뀐다.
+                       preference.band 0.05→0.025 (2026-09-21 스윕 근거, μ 도입으로 '동률 폭 축소' 트레이드오프가 사라져 반영). */
+export const ENGINE_VERSION = "2.5.1";
 
 const R9 = (x) => Math.round(x * 1e9) / 1e9;
 const R6 = (x) => Math.round(x * 1e6) / 1e6;
@@ -403,18 +408,22 @@ function transitionAt(rules, durationMin) {
   for (const row of rules.iso.transition_point) if (durationMin <= row.up_to) return Number(row.at);
   return Number(rules.iso.transition_point.at(-1).at);
 }
+/* [2.5.1] arrival: 그 걸음이 '이동'인지 '도착 후 머무름'인지. raw(양자화 전 t)가 1 이상이면 머무름 —
+   그 경유지는 전부 목표 좌표 그 자체라, 밴드로 뭉치면 실제로 더 가까운 곡을 놔두고 먼 곡을 고르는 지그재그가 생긴다. */
 function waypoints(nowC, tgtC, n, at) {
-  const pts = [];
+  const pts = [], arrival = [];
   for (let k = 0; k < n; k++) {
-    const t = n === 1 ? 1 : at > 0 ? Math.min(1, k / (n - 1) / at) : 1;
+    const raw = n === 1 ? 1 : at > 0 ? (k / (n - 1)) / at : 1;
+    const t = Math.min(1, raw);
+    arrival.push(raw >= 1);
     pts.push([nowC[0] + (tgtC[0] - nowC[0]) * t, nowC[1] + (tgtC[1] - nowC[1]) * t]);
   }
-  return pts;
+  return { pts, arrival };
 }
 
 // ── 탐색 ────────────────────────────────────────────────
 function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, band, nExpand,
-                       stepI = 0, seed = null, pbucket = 0) {
+                       stepI = 0, seed = null, pbucket = 0, mu = 0, arrival = false) {
   /* pool = 이 걸음의 영역 후보. 같은 걸음의 빔 상태들은 경유지가 같아 영역 풀도 같으므로
      recommend() 가 걸음당 1회만 계산해 넘긴다 (결과 동일, 속도만 개선). */
   const cap = Number(rules.diversity.max_per_artist);
@@ -438,9 +447,12 @@ function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, band, n
     const pd = prefDetail(s, rules, inputs.user);
     const pref = pd.score;
     const pmarg = R9((pd.neutral ?? 0.5) - pref);   // 내 중립점 − 선호. 좋아하는 곡일수록 음수 → 비용 감소 (2.5.0 μ 항)
+    const bandIdx = band > 0 ? Math.floor(fit / band) : 0;
+    /* [2.5.1] 머무름 구간(arrival)은 밴드로 뭉치지 않고 실제 거리(fit)를 그대로 비용에 쓴다 — 가까운 곡부터 순서대로 나오게. */
+    const distCost = arrival ? fit : bandIdx * band;
     return {
       song: s, fit, prog, jump, pref, pmarg, basis: pd.basis, neutral: pd.neutral,
-      band: band > 0 ? Math.floor(fit / band) : 0,
+      band: bandIdx, distCost,
       pbucket: pbucket > 0 ? Math.floor(R9(pref) / pbucket) : 0,
       jitter: R9(jitterOf(seed, s.song_id, stepI)),
     };
@@ -449,10 +461,13 @@ function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, band, n
   const bestBand = Math.min(...scored.map((x) => x.band));
   const bandSize = scored.filter((x) => x.band === bestBand).length;
 
-  // 우선순위: 기하 밴드 > 선호 버킷 > 시드 변이 > 결정론적 동점처리
+  // 우선순위: 기하 밴드(+μ 선호 비용) > 선호 버킷 > 시드 변이 > 결정론적 동점처리
+  // [2.5.0] μ>0 이면 후보 확장 단계에서도 선호가 밴드와 함께 계산된다 — 그래야 좋아하는 곡이 한 밴드 밖에 있어도 빔에 들어올 수 있다.
+  //         μ=0 이면 키가 밴드 값 그대로라 2.4.0 과 동일.
+  const key = (x) => R9(x.distCost + mu * x.pmarg);   // [2.5.1] 이동 구간은 밴드값, 머무름 구간은 실거리
   scored.sort((a, b) =>
-    cmpKeys([a.band, -a.pbucket, a.jitter, ...tiebreakKeys(a.song, rules), String(a.song.song_id)],
-            [b.band, -b.pbucket, b.jitter, ...tiebreakKeys(b.song, rules), String(b.song.song_id)]));
+    cmpKeys([key(a), -a.pbucket, a.jitter, ...tiebreakKeys(a.song, rules), String(a.song.song_id)],
+            [key(b), -b.pbucket, b.jitter, ...tiebreakKeys(b.song, rules), String(b.song.song_id)]));
 
   return { cands: scored.slice(0, nExpand), bandSize, relaxed };
 }
@@ -499,7 +514,7 @@ export function recommend(catalog, rules, inputsIn) {
              baselines: baseOut, song_count: songCountOut, sequence: [] };
   }
 
-  const wps = waypoints(nowC, tgtC, n, transitionAt(rules, dur));
+  const { pts: wps, arrival: arrivalMask } = waypoints(nowC, tgtC, n, transitionAt(rules, dur));
 
   const band = Number(rules.preference.band);
   const varc = rules.variation || {};
@@ -518,8 +533,9 @@ export function recommend(catalog, rules, inputsIn) {
     const wp = wps[wi];
     const next = [];
     const stepPool = regionPool(universe, ctx, wp, term, rules);   // 걸음당 1회
+    const isArrival = arrivalMask[wi];
     for (const st of beam) {
-      const { cands, bandSize, relaxed } = stepCandidates(stepPool, st, ctx, wp, tgtC, term, rules, inputs, band, nExpand, wi, seed, pbucket);
+      const { cands, bandSize, relaxed } = stepCandidates(stepPool, st, ctx, wp, tgtC, term, rules, inputs, band, nExpand, wi, seed, pbucket, mu, isArrival);
       for (const c of cands) {
         const s = c.song;
         const ac = { ...st.artistCount };
@@ -528,7 +544,7 @@ export function recommend(catalog, rules, inputsIn) {
           used: [...st.used, s.song_id],
           artistCount: ac,
           prev: ctx.coords.get(s.song_id),
-          cost: st.cost + c.band * band + pw * c.prog + jw * c.jump + mu * c.pmarg,
+          cost: st.cost + c.distCost + pw * c.prog + jw * c.jump + mu * c.pmarg,   // [2.5.1] distCost: 이동=밴드값, 머무름=실거리
           prefSum: st.prefSum + c.pref,
           pbSum: st.pbSum + c.pbucket,
           jitSum: st.jitSum + c.jitter,
@@ -543,7 +559,21 @@ export function recommend(catalog, rules, inputsIn) {
   }
 
   const best = beam[0];
-  const out = best.picks.map((pk, i) => {
+  /* [2.5.1] 검색은 매 걸음 그 순간 최선을 그리디로 고르므로, 도착 후 머무름 구간(경유지가 전부 목표 그 자체)에서는
+     먼저 뽑힌 곡이 가장 가깝고 뒤로 갈수록 남은 후보 중 상대적으로 먼 곡이 걸려 '마지막이 오히려 더 멀어지는' 지그재그가 생긴다.
+     그래서 이 구간만 사후에 '먼 것 → 가까운 것' 순으로 다시 배열해 마지막 곡이 항상 가장 가깝게(=도착) 끝나도록 한다.
+     어떤 곡을 쓸지는 그대로 두고 순서만 바꾼다 — 검색이 고른 곡 집합은 바뀌지 않는다. */
+  let picks = best.picks;
+  if (picks.length > 1) {
+    const lastWp = picks.at(-1).wp;
+    let start = picks.length;
+    while (start > 0 && picks[start - 1].wp[0] === lastWp[0] && picks[start - 1].wp[1] === lastWp[1]) start--;
+    if (picks.length - start > 1) {
+      const tail = picks.slice(start).slice().sort((a, b) => b.fit - a.fit);
+      picks = [...picks.slice(0, start), ...tail];
+    }
+  }
+  const out = picks.map((pk, i) => {
     const s = pk.song;
     const c = ctx.coords.get(s.song_id);
     const trace = {
