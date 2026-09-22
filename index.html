@@ -857,8 +857,8 @@ async function loadEngine() {
   } else {
     /* ?v= : 이미 설치된 옛 서비스워커(azt-v6)는 이 두 파일을 캐시에서 먼저 돌려준다.
        주소를 바꿔 그 캐시를 비켜 간다. 새 서비스워커(v7)부터는 network-first 라 값은 안 올려도 된다. */
-    AZT_ENGINE = await import("./engine/engine.js?v=241");
-    const res = await fetch("./rules/rules.compiled.json?v=241", { cache: "no-cache" });
+    AZT_ENGINE = await import("./engine/engine.js?v=250");
+    const res = await fetch("./rules/rules.compiled.json?v=250", { cache: "no-cache" });
     if (!res.ok) throw new Error("rules.compiled.json HTTP " + res.status);
     AZT_RULES = await res.json();
   }
@@ -1187,16 +1187,22 @@ let PERSONAL_FB_W  = {};   // song_id → Σ|v|
 let PERSONAL_FB_WD = {};   // song_id → Σ|v|·경과일
 let STATE_DAYS = {};       // song_id → 가장 최근 좋아요·벽 붙이기 이후 경과일 (users 문서엔 시각이 없어 이벤트 로그에서 회수)
 let HEARD = {};            // song_id → 마지막으로 들은 뒤 경과일 (HEARD_MIN_SECONDS 이상 들은 곡만)
+let HEARD_HOW = {};        // [2.5.0] song_id → { completion: 최고 완주율 0~1, skipped: 마지막 청취가 일찍 넘김이었나 } — 엔진 2.5.0 완주·스킵 표
 let DISLIKE_REASONS = {};  // song_id → 싫어요 이유 코드 (MISFIT_REASONS). 싫어요를 어느 묶음까지 넓힐지 정한다
 let FEATURE_BINNER = null; // 곡 → 특징 묶음. 전체 카탈로그로 한 번만 만든다
 function resetPersonalFeedback() {
   PERSONAL_FB = {}; PERSONAL_FB_N = {}; PERSONAL_FB_W = {}; PERSONAL_FB_WD = {}; STATE_DAYS = {};
-  HEARD = {}; DISLIKE_REASONS = {};
+  HEARD = {}; HEARD_HOW = {}; DISLIKE_REASONS = {};
 }
-function noteHeard(id, days) {
+function noteHeard(id, days, completion, skipped) {
   if (!id) return;
   const d = Math.max(0, Number(days) || 0);
-  if (!(id in HEARD) || d < HEARD[id]) HEARD[id] = d;
+  const fresh = !(id in HEARD) || d < HEARD[id];
+  if (fresh) HEARD[id] = d;
+  /* [2.5.0] 완주율은 여러 번 들었으면 최고값, 스킵 여부는 가장 최근 청취 기준 */
+  const h = HEARD_HOW[id] || (HEARD_HOW[id] = { completion: 0, skipped: false });
+  if (Number(completion) > h.completion) h.completion = Number(completion) || 0;
+  if (fresh) h.skipped = !!skipped;
 }
 /* 들어본 곡 기록 회수 — users/{uid}/listeningHistory (본인 문서). 로그인 사용자만, 최근 200건.
    이 기기에서 들은 것은 LISTEN_HISTORY(로컬)에도 있지만, 다른 기기·브라우저에서 들은 것은 여기서만 온다. */
@@ -1206,7 +1212,8 @@ async function loadHeardHistory(uid) {
       .orderBy("created_at", "desc").limit(200).get();
     snap.forEach(d => {
       const r = d.data();
-      if (Number(r.listenedSeconds) >= HEARD_MIN_SECONDS) noteHeard(r.songId, daysSince(r.created_at));
+      /* [2.5.0] 일찍 넘긴 곡(skipped)은 10초 미만이어도 '안 좋음' 표로 센다 */
+      if (Number(r.listenedSeconds) >= HEARD_MIN_SECONDS || r.skipped) noteHeard(r.songId, daysSince(r.created_at), r.completionRate, r.skipped);
     });
   } catch (e) {
     console.warn("청취 기록 로드 실패(이 기기의 기록만으로 개인화합니다):", e);
@@ -2307,9 +2314,16 @@ function buildHeardItems() {
   const days = {};
   const see = (id, d) => { if (id && (!(id in days) || d < days[id])) days[id] = d; };
   for (const [id, d] of Object.entries(HEARD)) see(id, d);
-  for (const r of LISTEN_HISTORY) if (Number(r.listenedSeconds) >= HEARD_MIN_SECONDS)
-    see(r.songId, r.at ? Math.max(0, (Date.now() - Date.parse(r.at)) / 86400000) : 0);
-  for (const [id, m] of Object.entries(TRACK_METRICS)) if (m && m.listenedSeconds >= HEARD_MIN_SECONDS) see(id, 0);
+  for (const r of LISTEN_HISTORY) if (Number(r.listenedSeconds) >= HEARD_MIN_SECONDS || r.skipped) {
+    const d = r.at ? Math.max(0, (Date.now() - Date.parse(r.at)) / 86400000) : 0;
+    see(r.songId, d); noteHeard(r.songId, d, r.completionRate, r.skipped);     // [2.5.0] 이 기기 기록의 완주·스킵도 반영
+  }
+  for (const [id, m] of Object.entries(TRACK_METRICS)) if (m && (m.listenedSeconds >= HEARD_MIN_SECONDS || m.skipped)) {
+    see(id, 0); noteHeard(id, 0, m.durationSec ? Math.min(1, m.listenedSeconds / m.durationSec) : 0, m.skipped);   // 지금 세션에서 들은 곡
+  }
+  /* [2.5.0] 벽에 붙인 곡(온보딩 선호곡 포함) = 감쇠 없는 좋음 표 */
+  const wallSongs = new Set([...PLAYLIST_SONGS, ...fav]);
+  for (const id of wallSongs) see(id, 0);                    // 안 들어봤어도 벽에 붙였으면 표를 준다
   /* 좋아요·싫어요·선호곡은 청취 기록이 없어도(다른 기기, 기록 유실) 들어본 곡으로 친다 — 들어봤으니 의견이 있다 */
   for (const id of LIKED_SONGS) see(id, STATE_DAYS[id] || 0);
   for (const id of DISLIKED_SONGS) see(id, STATE_DAYS[id] || 0);
@@ -2320,13 +2334,15 @@ function buildHeardItems() {
     const song = songById(id);
     if (!song) continue;
     const c = contractWithBins(song);
-    items.push({ song_id: id, liked: LIKED_SONGS.has(id) || fav.has(id), disliked: DISLIKED_SONGS.has(id),
+    const how = HEARD_HOW[id] || {};
+    items.push({ song_id: id, liked: LIKED_SONGS.has(id), disliked: DISLIKED_SONGS.has(id),
+                 pinned: wallSongs.has(id), completion: how.completion || 0, skipped: !!how.skipped && !LIKED_SONGS.has(id),
                  reason: DISLIKE_REASONS[id] || null, artist: c.artist, genres: c.genres, feature_bins: c.feature_bins, days: d });
   }
-  /* 온보딩에서 적은 선호 가수·장르: 곡 없이 '그 묶음에 좋아요 1건'. 좋아요 한 번과 같은 무게로 둔다. */
-  for (const a of ((USER_PROFILE && USER_PROFILE.preferred_artists) || [])) if (a) {
+  /* 벽에 붙인 가수(온보딩 포함): 곡 없이 '그 가수 묶음에 감쇠 없는 좋음 표 1건' (엔진 2.5.0 pinned) */
+  for (const a of preferredArtistNames()) if (a) {
     const e = findArtist(a);                                   // "IU" 로 적었어도 카탈로그의 "아이유" 묶음에 센다
-    items.push({ liked: true, artist: e ? e.name : a, days: 0 });
+    items.push({ pinned: true, artist: e ? e.name : a, days: 0 });
   }
   for (const g of normalizeGenreList(USER_PROFILE && USER_PROFILE.preferred_genres)) items.push({ liked: true, genres: [g], days: 0 });
   return items;
