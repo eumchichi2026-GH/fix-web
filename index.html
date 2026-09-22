@@ -3308,14 +3308,23 @@ async function recommend() {
      따로 갖고 있어서 30분에 앱은 5곡, 엔진은 8곡을 가정했다(장르 풀 충분 여부 판단이 어긋남). */
   const sc = AZT_RULES.iso.song_count;
   const needCount = Math.max(sc.min, Math.min(sc.max, Math.floor(RECOMMEND_MINUTES / sc.per_minutes)));
+  /* [2026-09-22] 장르가 충분한지는 엔진과 같은 조건으로 잰다.
+     ① 가사 게이트(instrumental_only / prefer_vocal)를 먼저 적용한 뒤 세고,
+     ② 곡 수가 아니라 '가수당 상한(max_per_artist)을 감안해 실제로 뽑을 수 있는 곡 수'로 본다.
+     이전엔 가사 조건 전의 곡 수로 세서 "J-pop + 가사 없는 곡"이 충분하다고 판단 → 엔진은 RADWIMPS 연주곡뿐인 풀에서
+     가수당 2곡 상한에 걸려 2곡에서 끝났다. */
+  const passesLyricGate = s => lyric === "instrumental_only" ? songIsInstrumental(s) : lyric === "prefer_vocal" ? !songIsInstrumental(s) : true;
+  const artistCap = Number(AZT_RULES.diversity?.max_per_artist) || 2;
+  const capacityOf = list => { const n = {}; for (const s of list) n[s.artist] = (n[s.artist] || 0) + 1; return Object.values(n).reduce((a, c) => a + Math.min(c, artistCap), 0); };
   let genreApplied = null, genrePoolSize = null;
   if (SELECTED_GENRES.length) {
     const genrePool = pool.filter(matchesGenre);
+    const usable = capacityOf(genrePool.filter(passesLyricGate));
     genrePoolSize = genrePool.length;
-    genreApplied = genrePool.length >= needCount;
+    genreApplied = usable >= needCount;
     if (genreApplied) pool = genrePool;          // 고른 장르의 곡만으로 추천
-    else GENRE_NOTICE = SELECTED_GENRES.join("·") + " 장르이면서 가사 조건에 맞는 곡이 " + genrePool.length
-      + "곡뿐이라(" + needCount + "곡 필요) 이번에는 다른 장르도 함께 골랐어요.";   // 조용히 넘어가지 않는다
+    else GENRE_NOTICE = SELECTED_GENRES.join("·") + " 장르" + (lyric !== "no_preference" ? "이면서 가사 조건에 맞는" : "") + " 곡이 "
+      + usable + "곡뿐이라(" + needCount + "곡 필요) 이번에는 다른 장르도 함께 골랐어요.";   // 조용히 넘어가지 않는다
   }
   LAST_FILTER_SNAPSHOT = { lyric, genres: [...SELECTED_GENRES], genre_applied: genreApplied, genre_pool: genrePoolSize, pool: pool.length };
 
@@ -3341,7 +3350,7 @@ async function recommend() {
     target: { V: tgt.v, A: tgt.e },
     stress: deriveStress(cur),       // 0~4
     load:   deriveContextLoad(),     // 미수집(null) — stress 와 끝까지 분리된 축
-    genres: SELECTED_GENRES,
+    genres: genreApplied ? SELECTED_GENRES : [],   // [2026-09-22] 앱이 '부족'으로 판단했으면 엔진에도 장르를 넘기지 않는다 (엔진은 곡 수만 보고 다시 적용할 수 있음)
     duration_min: RECOMMEND_MINUTES,
     seed,
     gates,
@@ -3362,7 +3371,25 @@ async function recommend() {
     ? { ...AZT_RULES, iso: { ...AZT_RULES.iso, transition_point: PACE_TP[PACE_MODE] } }
     : AZT_RULES;
 
-  const result = AZT_ENGINE.recommend(contract, rulesForRun, engineInput);
+  let result = AZT_ENGINE.recommend(contract, rulesForRun, engineInput);
+  /* [2026-09-22] 조건 조합으로 후보가 모자라 경로가 짧게 끝나면(엔진이 정한 곡 수보다 적음) 조건을 하나씩 풀어 다시 만든다.
+     순서: 가사 조건 → 장르 → 둘 다. 무엇을 풀었는지 GENRE_NOTICE 로 결과 화면에 알린다. 조용히 2곡만 내놓지 않는다. */
+  const wantN = result.song_count ? result.song_count.effective : needCount;
+  if (result.sequence.length < wantN && (gates.length || engineInput.genres.length)) {
+    const tries = [];
+    if (gates.length) tries.push({ label: "가사 조건", input: { ...engineInput, gates: [] } });
+    if (engineInput.genres.length) tries.push({ label: "장르", input: { ...engineInput, genres: [] } });
+    if (gates.length && engineInput.genres.length) tries.push({ label: "가사 조건과 장르", input: { ...engineInput, gates: [], genres: [] } });
+    for (const t of tries) {
+      const r2 = AZT_ENGINE.recommend(contract, rulesForRun, t.input);
+      if (r2.sequence.length > result.sequence.length) {
+        result = r2;
+        GENRE_NOTICE = "지금 조건으로는 " + wantN + "곡을 이을 수 없어서 " + t.label + "을 풀고 골랐어요.";
+        console.warn("[AZT] 후보 부족 → " + t.label + " 해제 (" + r2.sequence.length + "곡)");
+        if (r2.sequence.length >= wantN) break;
+      }
+    }
+  }
   LAST_ENGINE_RESULT = result;
 
   /* 엔진 결과(곡ID + trace)를 앱의 곡 객체에 다시 붙인다 */
@@ -3402,11 +3429,17 @@ async function recommend() {
   const list = [...seq, ...extras];
   const stepOf = {}; seq.forEach((s,i)=>stepOf[s.id]=i+1);
   drawPath(cur, tgt, seq);
-  persistPreferencePatch({
-    preferred_genres: SELECTED_GENRES,
-    recommend_minutes: RECOMMEND_MINUTES,
-    lyric_preference_default: lyric
-  });
+  /* [2026-09-22] 자연어 문장에서 읽은 조건(가사·장르·시간)은 이번 추천에만 쓴다.
+     기본값으로 저장하지 않고(그러면 "가사 없는 걸로"가 계정 설정에 눌러앉는다), 추천이 끝나면 원래 설정으로 되돌린다. */
+  const nlApplied = !!(NL_S && NL_PRESET);
+  persistPreferencePatch(nlApplied
+    ? { preferred_genres: NL_PRESET.genres, recommend_minutes: NL_PRESET.minutes, lyric_preference_default: NL_PRESET.lyric }
+    : { preferred_genres: SELECTED_GENRES, recommend_minutes: RECOMMEND_MINUTES, lyric_preference_default: lyric });
+  if (nlApplied) {
+    $("lyric").value = NL_PRESET.lyric; SELECTED_GENRES = [...NL_PRESET.genres]; RECOMMEND_MINUTES = NL_PRESET.minutes;
+    const lt = $("listenTime"); if (lt) { lt.value = NL_PRESET.minutes; const o = $("listenTimeOut"); if (o) o.textContent = NL_PRESET.minutes; }
+    if (typeof renderGenreChips === "function") renderGenreChips();
+  }
   logRecommendation({ lyric, cur, tgt, genres:SELECTED_GENRES, minutes:RECOMMEND_MINUTES }, seq, extras);
   renderResults(list, seq, cur, tgt, pool.length, stepOf);
 }
