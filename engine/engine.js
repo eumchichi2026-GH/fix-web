@@ -7,7 +7,7 @@
  *   1) 좌표 변환   원 V/A → 퍼센타일 좌표
  *   2) 하드 제약   게이트 / 싫어요 / 최근재생 / 아티스트 상한 / 장르
  *   3) 영역 후보   waypoint 이웃 반경 (사분면 박스 아님)
- *   4) 두 레인     기하가 어디로 갈지, 선호가 동급 중 무엇을
+ *   4) 두 레인     기하가 어디로 갈지, 선호가 동급 중 무엇을 (2.5.0: μ>0 이면 선호도 비용에 직접 더해진다)
  *   5) 빔 탐색     경로 전체 비용 최소화
  */
 
@@ -19,8 +19,13 @@
                        iso.step_limit_scale·후보 제외 필터·완화 폴백. 실카탈로그 4,117곡 600 시나리오에서 발동 0.01회/세션, 제거해도 지표 동일.
                        (2) path.fit_weight 제거 — 균등 배율이라 결과 무관.
                        (3) 전환 비용(transition cost) 추가 — cost += path.jump_weight × 인접 곡 거리. λ=0.1 에서 최대 전환 거리 −13%.
-                       근거: 2026-09-21 민감도 분석(파라미터 9개, one-at-a-time). */
-export const ENGINE_VERSION = "2.4.0";
+                       근거: 2026-09-21 민감도 분석(파라미터 9개, one-at-a-time).
+   2.5.0 (2026-09-22): 개인화 신호 4종 — (1) 완주·스킵을 표로 센다(items.completion·skipped, preference.implicit).
+                       (2) 벽에 붙인 곡·가수(items.pinned)는 좋아요와 같은 무게로 세되 시간 감쇠하지 않는다.
+                       (3) 가수 "A;B;C" 다중 표기를 쪼개 각 가수에 표를 준다(artistKeys). 협업곡 좋아요가 단독 가수로 넘어간다.
+                       (4) 선호를 동률 깨기에서 비용 항으로 승격 — cost += preference.pref_weight(μ) × (내 중립점 − 선호 점수).
+                           μ=0 이면 2.4.0 과 결과 동일(회귀 확인). μ 값은 스윕으로 정한다. */
+export const ENGINE_VERSION = "2.5.0";
 
 const R9 = (x) => Math.round(x * 1e9) / 1e9;
 const R6 = (x) => Math.round(x * 1e6) / 1e6;
@@ -149,11 +154,17 @@ function applyModulators(rules, inputs) {
 /* (긍정 + prior·k) / (전체 + k) — "기록이 없으면 prior 에서 출발하고, 기록이 쌓일수록 실제 비율에 가까워진다."
    prior = 0.5, k = 2 이면 (좋아요 + 1) / (전체 + 2) : 라플라스의 계승 규칙.
    k = 2 는 '가상의 관측 2건'(라플라스 규칙에서 성공 1·실패 1 에 해당)의 무게를 뜻한다. */
-function shrunk(pos, neg, k, decay = 1, prior = 0.5) {
-  const n = (pos + neg) * decay;
+function shrunk(pos, neg, k, decay = 1, prior = 0.5, pin = 0) {
+  /* pin = 벽에 붙인 표(2.5.0). 감쇠하지 않는 '좋음' 표로, 좋아요와 같은 무게. */
+  const n = (pos + neg) * decay + pin;
   if (n <= 0) return prior;
-  const ratio = pos / (pos + neg);
-  return (ratio * n + prior * k) / (n + k);
+  return (pos * decay + pin + prior * k) / (n + k);
+}
+
+/* 가수 문자열 → 키 목록 (2.5.0). DB 의 artist 는 "A;B;C" 다중 표기가 있어 세미콜론으로 쪼갠다.
+   키는 앱의 artistKeyOf 와 같은 식(공백 제거·소문자)이라 "IU"/"iu" 가 같은 묶음에 든다. */
+export function artistKeys(artist) {
+  return String(artist || "").split(/[;]/).map((a) => a.trim().toLowerCase().replace(/\s+/g, "")).filter(Boolean);
 }
 
 /* ── 곡 특징 구간 ─────────────────────────────────────────
@@ -192,8 +203,18 @@ export function makeFeatureBinner(fullCatalog, rules) {
 /* ── 들은 곡·좋아요 → 가수·특징별 '좋아요 비율' 집계 ─────────
    items: 사용자가 **실제로 들어본 곡**(좋아요를 누를 수 있었던 곡) 한 곡당 하나.
      { song_id?, liked: bool, disliked?: bool, reason?: 싫어요 이유 코드|null,
+       completion?: 0~1 완주율, skipped?: bool, pinned?: bool(벽에 붙임),
        artist?, genres?: [], feature_bins?: {id: bin}, days?: 경과일 }
    각 가수·특징 묶음마다 "들어본 곡 N개 중 좋아요한 곡 M개" 를 센다 (pos = M, neg = N − M).
+
+   [2.5.0] 한 곡이 주는 표 (rules.preference.implicit):
+     벽에 붙임(pinned)              → pin += pinned_weight (감쇠 없음, '내 평균'에는 안 셈)
+     좋아요                          → pos 1
+     싫어요                          → neg 1 (범위는 dislike_scope)
+     일찍 넘김(skipped)              → neg skip_weight
+     끝까지 들음(completion ≥ completion_min), 좋아요 없음 → pos completion_weight, neg 1 − completion_weight
+     들었지만 아무 반응 없음         → neg 1 (2.4.0 과 같음)
+   완주·스킵 값을 안 주면(옛 앱) 2.4.0 과 똑같이 센다.
 
    왜 '좋아요 수'가 아니라 '들은 것 중 비율'인가 —
      좋아요만 세면 흔한 묶음이 무조건 이긴다. 카탈로그의 90% 가 보컬곡이면 좋아요의 90% 도 보컬곡이라
@@ -207,11 +228,14 @@ export function makeFeatureBinner(fullCatalog, rules) {
 export function aggregateAffinity(items, rules) {
   const scopeMap = (rules.preference && rules.preference.dislike_scope) || {};
   const featIds = ((rules.preference && rules.preference.features) || []).map((f) => f.id);
+  const imp = (rules.preference && rules.preference.implicit) || {};
+  const CW = Number(imp.completion_weight ?? 0.5), CMIN = Number(imp.completion_min ?? 0.8);
+  const SW = Number(imp.skip_weight ?? 1), PW = Number(imp.pinned_weight ?? 1);
   const out = { like_base: { pos: 0, neg: 0 }, song_likes: {}, artist_affinity: {}, genre_affinity: {}, feature_affinity: {} };
-  const vote = (table, key, liked, days) => {
-    const r = table[key] || (table[key] = { pos: 0, neg: 0, _d: 0 });
-    if (liked) r.pos += 1; else r.neg += 1;
-    r._d += Number(days) || 0;
+  const vote = (table, key, v, days) => {
+    const r = table[key] || (table[key] = { pos: 0, neg: 0, pin: 0, _d: 0 });
+    r.pos += v.pos; r.neg += v.neg; r.pin += v.pin;
+    r._d += (v.pos + v.neg) * (Number(days) || 0);   // 감쇠용 경과일은 감쇠 대상 표에만
   };
   const ALL = ["base", "song", "artist", "genre", "features"];
   for (const it of items || []) {
@@ -223,14 +247,22 @@ export function aggregateAffinity(items, rules) {
       /* 취향 전체를 가리키는 싫어요만 '내 평균'과 '이 곡' 에도 센다 */
       scope = sc.includes("artist") && sc.includes("features") ? ALL : sc;
     }
+    /* 이 곡이 주는 표 */
+    let v;
+    if (it.pinned) v = { pos: 0, neg: 0, pin: PW };
+    else if (liked) v = { pos: 1, neg: 0, pin: 0 };
+    else if (it.disliked) v = { pos: 0, neg: 1, pin: 0 };
+    else if (it.skipped) v = { pos: 0, neg: SW, pin: 0 };
+    else if (Number(it.completion) >= CMIN) v = { pos: CW, neg: 1 - CW, pin: 0 };
+    else v = { pos: 0, neg: 1, pin: 0 };
     const has = (x) => scope.includes(x);
-    if (has("base")) { if (liked) out.like_base.pos += 1; else out.like_base.neg += 1; }
-    if (has("song") && it.song_id) vote(out.song_likes, it.song_id, liked, it.days);
-    if (has("artist") && it.artist) vote(out.artist_affinity, it.artist, liked, it.days);
-    if (has("genre")) for (const g of it.genres || []) vote(out.genre_affinity, g, liked, it.days);
+    if (has("base") && !it.pinned) { out.like_base.pos += v.pos; out.like_base.neg += v.neg; }
+    if (has("song") && it.song_id) vote(out.song_likes, it.song_id, v, it.days);
+    if (has("artist") && it.artist) for (const k of artistKeys(it.artist)) vote(out.artist_affinity, k, v, it.days);
+    if (has("genre")) for (const g of it.genres || []) vote(out.genre_affinity, g, v, it.days);
     for (const id of featIds) {
       const b = it.feature_bins && it.feature_bins[id];
-      if (b !== undefined && (has("features") || has(id))) vote(out.feature_affinity, id + ":" + b, liked, it.days);
+      if (b !== undefined && (has("features") || has(id))) vote(out.feature_affinity, id + ":" + b, v, it.days);
     }
   }
   for (const table of [out.song_likes, out.artist_affinity, out.genre_affinity, out.feature_affinity])
@@ -263,20 +295,23 @@ function prefDetail(song, rules, user) {
        기록이 없는 묶음은 p0 — "모르면 내 평균". 묶음 사이에 가중치를 두지 않는다: 어느 것이 더 중요한지
        정할 근거가 없고 사람마다 다를 수 있기 때문이다.
        들어본 곡이 하나도 없을 때만(콜드스타트) 전체 사용자 통계를 쓴다. 내 기록이 생기면 남의 평균은 쓰지 않는다. */
-    const p0 = likeBaseRate(user);
+    /* [2.5.0] 들어본 곡이 없어도 벽에 붙인 게 있으면 개인화한다 — 중립점은 0.5. */
+    const hasPins = Object.values(user.artist_affinity || {}).some((r) => r.pin > 0) || Object.values(user.song_likes || {}).some((r) => r.pin > 0);
+    const p0 = likeBaseRate(user) ?? (hasPins ? 0.5 : null);
     if (p0 === null) return { score: globalScore ?? 0.5, neutral: 0.5, basis: [] };
     const basis = [];
-    const rate = (id, rec) => {
-      const v = rec ? shrunk(rec.pos || 0, rec.neg || 0, pk, decayOf(rec), p0) : p0;
-      basis.push({ id, score: v });
-    };
+    const sc = (rec) => shrunk(rec.pos || 0, rec.neg || 0, pk, decayOf(rec), p0, rec.pin || 0);
+    const rate = (id, rec) => { basis.push({ id, score: rec ? sc(rec) : p0 }); };
     rate("song", (user.song_likes || {})[song.song_id]);
-    if (song.artist) rate("artist", (user.artist_affinity || {})[song.artist]);
+    if (song.artist) {   // "A;B;C" 는 가수별 점수 중 가장 높은 것 (장르와 같은 방식)
+      const aa = user.artist_affinity || {};
+      const recs = artistKeys(song.artist).map((k) => aa[k]).filter(Boolean);
+      rate("artist", recs.length ? recs.reduce((a, b) => (sc(b) > sc(a) ? b : a)) : null);
+    }
     if ((song.genres || []).length) {
       const ga = user.genre_affinity || {};
       const recs = song.genres.map((g) => ga[g]).filter(Boolean);
-      const best = recs.length ? recs.reduce((a, b) => (shrunk(b.pos, b.neg, pk, decayOf(b), p0) > shrunk(a.pos, a.neg, pk, decayOf(a), p0) ? b : a)) : null;
-      rate("genre", best);
+      rate("genre", recs.length ? recs.reduce((a, b) => (sc(b) > sc(a) ? b : a)) : null);
     }
     const fa = user.feature_affinity || {};
     for (const f of p.features || []) {
@@ -402,8 +437,9 @@ function stepCandidates(pool, state, ctx, wp, tgtC, term, rules, inputs, band, n
     const jump = state.prev ? R9(dist(c, state.prev, term)) : 0;   // 인접 곡 전환 거리 (transition cost 대상)
     const pd = prefDetail(s, rules, inputs.user);
     const pref = pd.score;
+    const pmarg = R9((pd.neutral ?? 0.5) - pref);   // 내 중립점 − 선호. 좋아하는 곡일수록 음수 → 비용 감소 (2.5.0 μ 항)
     return {
-      song: s, fit, prog, jump, pref, basis: pd.basis, neutral: pd.neutral,
+      song: s, fit, prog, jump, pref, pmarg, basis: pd.basis, neutral: pd.neutral,
       band: band > 0 ? Math.floor(fit / band) : 0,
       pbucket: pbucket > 0 ? Math.floor(R9(pref) / pbucket) : 0,
       jitter: R9(jitterOf(seed, s.song_id, stepI)),
@@ -471,6 +507,7 @@ export function recommend(catalog, rules, inputsIn) {
   const pbucket = varc.enabled ? Number(varc.pref_bucket || 0) : 0;
   const pw = Number(rules.path.progress_weight);
   const jw = Number(rules.path.jump_weight || 0);   // 전환 비용 λ (2.4.0)
+  const mu = Number(rules.preference.pref_weight || 0);   // 선호 비용 μ (2.5.0). 0 이면 동률 깨기만 (2.4.0 동일)
   const strategy = rules.search.strategy;
   const beamW = strategy === "beam" ? Number(rules.search.beam_width) : 1;
   const nExpand = strategy === "beam" ? Number(rules.search.expand_per_step) : 1;
@@ -491,7 +528,7 @@ export function recommend(catalog, rules, inputsIn) {
           used: [...st.used, s.song_id],
           artistCount: ac,
           prev: ctx.coords.get(s.song_id),
-          cost: st.cost + c.band * band + pw * c.prog + jw * c.jump,
+          cost: st.cost + c.band * band + pw * c.prog + jw * c.jump + mu * c.pmarg,
           prefSum: st.prefSum + c.pref,
           pbSum: st.pbSum + c.pbucket,
           jitSum: st.jitSum + c.jitter,
