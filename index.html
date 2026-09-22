@@ -857,8 +857,8 @@ async function loadEngine() {
   } else {
     /* ?v= : 이미 설치된 옛 서비스워커(azt-v6)는 이 두 파일을 캐시에서 먼저 돌려준다.
        주소를 바꿔 그 캐시를 비켜 간다. 새 서비스워커(v7)부터는 network-first 라 값은 안 올려도 된다. */
-    AZT_ENGINE = await import("./engine/engine.js?v=232");
-    const res = await fetch("./rules/rules.compiled.json?v=230", { cache: "no-cache" });
+    AZT_ENGINE = await import("./engine/engine.js?v=241");
+    const res = await fetch("./rules/rules.compiled.json?v=241", { cache: "no-cache" });
     if (!res.ok) throw new Error("rules.compiled.json HTTP " + res.status);
     AZT_RULES = await res.json();
   }
@@ -884,7 +884,7 @@ async function loadEngine() {
    장르는 '가점'이 아니라 '최우선 조건'입니다 — 규칙의 genre_policy.hard_if_sufficient.
    곡 수를 채우면 후보 풀 자체를 장르로 제한하고, 부족할 때만 타장르를 보충합니다. */
 const GLOBAL_K = 10;  // loadGlobalStats() 의 통계 축소에만 쓰임 (엔진 값과 별개)
-const FAVORITE_GENRES = ["K-pop","발라드","힙합","R&B","인디","록","팝","재즈","클래식","lo-fi","EDM","OST","시티팝","뉴에이지"];
+const FAVORITE_GENRES = ["K-pop","J-pop","발라드","힙합·랩","R&B·소울","인디","록·메탈","팝","일렉트로닉","재즈","클래식","OST","휴식·앰비언트"];   // 2026-09-22: 플랫폼 대분류 13종 (GENRE_OPTIONS 와 동일)
 /* 가사 선호 문턱. spokenness 는 순위 정규화라 값이 곧 백분위다 —
    0.4 면 "말이 적은 쪽 40%". 연주곡 여부는 태그 instrumental 이 따로 알려주므로
    문턱이 필요 없다. */
@@ -953,25 +953,25 @@ let SONGS = [];
    country 오역)·라틴·레게·크리스마스 → `팝`(해당 버튼이 없어 가장 가까운 쪽), 펑크(Funk) → `EDM`.
    `"스윙"` 이 아니라 `"스윙 음악"` 인 이유는 `"아프로스윙"` 이 재즈로 끌려오지 않게 하려는 것. */
 const GENRE_RULES = {
-  "K-pop":   /k-?pop|케이팝|k-?팝|^k-/i,              // "K-발라드"·"K-힙합"처럼 K- 로 시작하면 한국 대중음악으로 본다
-  "J-pop":   /j-?pop|제이팝|j-?팝|보컬로이드|vocaloid|시부야계|가요쿄쿠|엔카|비주얼계/i,   // 2026-09-18 추가 — 234곡, 팝(17곡)과 분리
-  "발라드":   /ballad|발라드/i,
-  "힙합":     /hip[ -]?hop|\brap\b|힙합|랩/i,
-  "R&B":     /r&b|rnb|r ?n ?b|\bsoul\b|알앤비|소울/i,
-  "인디":     /indie|인디|싱어송라이터|포크/i,
-  "록":       /\brock\b|\bpunk\b|\bmetal\b|록|락|메탈|밴드|노이즈 음악|슈게이징|브릿팝|매드체스터|슬로우코어|indorock|뉴 웨이브|뉴 레이브|라이엇 걸|퀴어코어|\bemo\b|그런지|하드코어/i,
-  "팝":       /(^|[^a-z-])pop\b|(^|[^가-힣-])팝$|^팝|하이퍼팝|만도팝|mandopop|차이나팝|칸토팝|cantopop|아프로팝|아프로비트|아프로스윙|국가|컨트리|라틴|latino|레게|son cubano|팀바|크리스마스|두왑|프리스타일/i,  // K-팝·J-팝·시티팝은 아래 제외 규칙으로 뺀다
-  "재즈":     /jazz|bossa|재즈|보사|하드 밥|비밥|빅 ?밴드|스윙 음악|어덜트 스탠다드/i,
-  "클래식":   /classical|orchestra|클래식|오케스트라|인상주의|신고전주의|체임버|협주곡|오페라|바로크|미니멀리즘|르네상스/i,
-  "lo-fi":   /lo-?fi|chillhop|로파이/i,
-  "EDM":     /\bedm\b|electro|house|techno|trance|dubstep|\bdance\b|일렉|댄스|하우스|빅 ?룸|budots|베이스|덥스텝|바운스|저지 클럽|하이에너지|디스코|amapiano|아프로피아노|gqom|하이피|펑크\(funk\)|펑키|카리오카|빅 ?비트/i,
-  "OST":     /\bost\b|soundtrack|사운드트랙|드라마|영화|애니|스코어/i,
-  "시티팝":   /city ?pop|시티 ?팝/i,
-  "뉴에이지": /new ?age|ambient|뉴에이지|앰비언트|이지 리스닝|네이티브 아메리칸|중국 고풍|private school piano/i,
+  /* 2026-09-22 플랫폼 대분류(멜론·애플뮤직 공통) 13종. 한 곡이 여러 버튼에 속할 수 있다.
+     K-pop 은 Spotify 가 'k-pop/케이팝' 이라 붙인 아이돌·댄스 계열만 — 'K-발라드'는 발라드에만 (플랫폼 의미와 일치). */
+  "K-pop":       /^k-?pop$|^케이팝$|^k-?팝$|k-?댄스|k-?dance|k-?idol|아이돌/i,
+  "J-pop":       /j-?pop|제이팝|j-?팝|보컬로이드|vocaloid|시부야계|가요쿄쿠|엔카|비주얼계|city ?pop|시티 ?팝|j-?댄스|j-?dance/i,
+  "발라드":       /ballad|발라드/i,
+  "힙합·랩":      /hip[ -]?hop|\brap\b|힙합|랩|트랩|크렁크|그라임|드릴|붐뱁|g 펑크|라틴 어반/i,
+  "R&B·소울":     /r&b|rnb|r ?n ?b|\bsoul\b|알앤비|소울|두왑|모타운|^펑크\(funk\)$/i,
+  "인디":         /indie|인디|싱어송라이터|^포크$|포크 팝/i,
+  "록·메탈":      /\brock\b|\bpunk\b|\bmetal\b|록|락|메탈|노이즈 음악|슈게이징|브릿팝|매드체스터|슬로우코어|indorock|로큰롤|뉴 웨이브|뉴 레이브|신스팝|라이엇 걸|퀴어코어|\bemo\b|그런지|하드코어|펑크\(punk\)/i,
+  "팝":           /(^|[^a-z-])pop\b|(^|[^가-힣-])팝$|^팝|하이퍼팝|만도팝|mandopop|차이나팝|칸토팝|cantopop|아프로팝|아프로비트|아프로스윙|어덜트 스탠다드|이지 리스닝|라운지|국가|컨트리|country|라틴|latin|레게|son cubano|팀바|크리스마스|프리스타일/i,  // K-팝·J-팝·시티팝은 아래 제외 규칙으로 뺀다
+  "일렉트로닉":   /\bedm\b|electro|house|techno|trance|dubstep|\bdance\b|일렉|댄스|하우스|빅 ?룸|budots|베이스|덥스텝|데스스텝|드럼스텝|바운스|저지 클럽|하이에너지|디스코|amapiano|아프로피아노|gqom|하이피|펑키|카리오카|빅 ?비트|리딤|트랜스|정글|개러지|브레이크비트|필라델피아 클럽/i,
+  "재즈":         /jazz|bossa|재즈|보사|하드 밥|비밥|빅 ?밴드|스윙|래그타임/i,
+  "클래식":       /classical|orchestra|클래식(?! 록| 컨트리| 소울)|오케스트라|인상주의|신고전주의|체임버|협주곡|오페라|바로크|미니멀리즘|르네상스|발레|표현주의|합창|^중세$|비얀시코스/i,
+  "OST":         /\bost\b|soundtrack|사운드트랙|드라마|영화|애니|스코어/i,
+  "휴식·앰비언트": /lo-?fi|chill|로파이|칠|다운템포|트립 합|new ?age|ambient|뉴에이지|앰비언트|네이티브 아메리칸|중국 고풍|private school piano/i,
 };
 const GENRE_RULE_EXCLUDE = { "팝": /k-?pop|j-?pop|c-?pop|k-?팝|j-?팝|케이팝|제이팝|city ?pop|시티 ?팝/i,
-                             "EDM": /^k-댄스$/i,
-                             "록": /빅 ?밴드/i };      // "밴드" 가 빅 밴드(재즈)까지 록으로 끌고 오지 않게
+                             "일렉트로닉": /^[kj]-?댄스$|^[kj]-?dance$/i,
+                             "록·메탈": /빅 ?밴드/i };      // "밴드" 가 빅 밴드(재즈)까지 록으로 끌고 오지 않게
 function readRawGenres(d, pr) {           // genre / genres — 배열이든 문자열이든 받아서 평평하게
   const out = [];
   const take = (v) => {
@@ -1025,7 +1025,14 @@ function toGenreLabelsQuiet(raw) {        // 진단용: UNMAPPED 집계를 건�
   }
   return out;
 }
-const GENRE_OPTIONS = ["K-pop","J-pop","발라드","힙합","R&B","인디","록","팝","재즈","클래식","lo-fi","EDM","OST","시티팝","뉴에이지"];
+const GENRE_OPTIONS = ["K-pop","J-pop","발라드","힙합·랩","R&B·소울","인디","록·메탈","팝","일렉트로닉","재즈","클래식","OST","휴식·앰비언트"];
+/* 이전 버튼 이름으로 저장된 선호 장르(profile.preferred_genres)를 새 이름으로 옮긴다 (2026-09-22) */
+const GENRE_LEGACY = { "힙합":"힙합·랩", "R&B":"R&B·소울", "록":"록·메탈", "EDM":"일렉트로닉", "lo-fi":"휴식·앰비언트", "뉴에이지":"휴식·앰비언트", "시티팝":"J-pop" };
+function normalizeGenreList(list) {
+  const out = [];
+  for (const g of (Array.isArray(list) ? list : [])) { const n = GENRE_LEGACY[g] || g; if (GENRE_OPTIONS.includes(n) && !out.includes(n)) out.push(n); }
+  return out;
+}
 let SELECTED_GENRES = [];
 let RECOMMEND_MINUTES = 30;
 /* 감정 여정 속도: null=자동(시간별 기본 정책), fast=목표 중심, slow=펼침.
@@ -1433,7 +1440,7 @@ function applyProfile(p) {
     if (!WALL_META[id]) WALL_META[id] = { src: "onboarding", at: null };
   }
   LEGACY_ARTISTS_DONE = false; LEGACY_UNMATCHED = [];
-  if (p && Array.isArray(p.preferred_genres)) SELECTED_GENRES = [...p.preferred_genres];
+  if (p && Array.isArray(p.preferred_genres)) SELECTED_GENRES = normalizeGenreList(p.preferred_genres);
   if (p && p.recommend_minutes) RECOMMEND_MINUTES = Number(p.recommend_minutes) || 30;
   syncMinuteReadouts();
   if (p && p.lyric_preference_default) $("lyric").value = p.lyric_preference_default;
@@ -1651,7 +1658,7 @@ function loadLocalPersonal() {
   if (!firebase.auth().currentUser || firebase.auth().currentUser.isAnonymous) {
     /* 비로그인: 좋아요·벽 같은 개인화 데이터는 계정 전용이므로 복원하지 않는다
        (예전 버전이 남긴 로컬 데이터가 있어도 무시). 편의 설정만 이어받는다. */
-    if (Array.isArray(p.preferred_genres)) SELECTED_GENRES = [...p.preferred_genres];
+    if (Array.isArray(p.preferred_genres)) SELECTED_GENRES = normalizeGenreList(p.preferred_genres);
     if (p.recommend_minutes) RECOMMEND_MINUTES = Number(p.recommend_minutes) || 30;
     syncMinuteReadouts();
   }
@@ -2321,7 +2328,7 @@ function buildHeardItems() {
     const e = findArtist(a);                                   // "IU" 로 적었어도 카탈로그의 "아이유" 묶음에 센다
     items.push({ liked: true, artist: e ? e.name : a, days: 0 });
   }
-  for (const g of ((USER_PROFILE && USER_PROFILE.preferred_genres) || [])) if (g) items.push({ liked: true, genres: [g], days: 0 });
+  for (const g of normalizeGenreList(USER_PROFILE && USER_PROFILE.preferred_genres)) items.push({ liked: true, genres: [g], days: 0 });
   return items;
 }
 let LAST_PERSONAL_SNAPSHOT = null;
@@ -2352,7 +2359,7 @@ function buildUserProfile() {
   for (const a of ((USER_PROFILE && USER_PROFILE.preferred_artists) || [])) {
     if (a) artist_affinity[AZT_ENGINE.artistKey((findArtist(a) || { name: a }).name)] = { pos: 5, neg: 0, last_days: 0 };   // 엔진 2.3.1: 가수 키는 artistKey()
   }
-  for (const g of ((USER_PROFILE && USER_PROFILE.preferred_genres) || [])) {
+  for (const g of normalizeGenreList(USER_PROFILE && USER_PROFILE.preferred_genres)) {
     if (g) genre_affinity[g] = { pos: 5, neg: 0, last_days: 0 };
   }
   LAST_PERSONAL_SNAPSHOT = { mode: "weighted" };
