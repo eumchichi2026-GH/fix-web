@@ -1,5 +1,5 @@
 /* =====================================================================
-   Gemini 중계 함수 (Vercel Serverless Function) — 2026-09-22 v2
+   Gemini 중계 함수 (Vercel Serverless Function) — 2026-09-22 v3 (장르 13종 + 별칭 정규화)
    - 키는 Vercel 환경변수 GEMINI_API_KEY 에만 존재한다.
    - GET                                   → { ok, hasKey }
    - POST { action:"listModels" }          → 사용 가능 모델 목록
@@ -22,7 +22,27 @@ const GOAL_WORDS = [
   "푹 쉬고 싶어요","차분해지고 싶어요","집중해야 해요","기분 전환하고 싶어요","신나고 싶어요","시원하게 털어버리고 싶어요",
   "위로받고 싶어요","잠들고 싶어요"
 ];
-const GENRES = ["K-pop","발라드","힙합","R&B","인디","록","팝","재즈","클래식","lo-fi","EDM","OST","시티팝","뉴에이지"];
+/* 2026-09-22: 플랫폼 대분류 13종 — index.html 의 GENRE_OPTIONS 와 글자 그대로 같아야 한다. */
+const GENRES = ["K-pop","J-pop","발라드","힙합·랩","R&B·소울","인디","록·메탈","팝","일렉트로닉","재즈","클래식","OST","휴식·앰비언트"];
+/* 모델이 옛 버튼 이름이나 흔한 표기로 답해도 새 이름으로 맞춰 준다 (index.html 의 GENRE_LEGACY 와 같은 뜻). */
+const GENRE_ALIAS = {
+  "힙합":"힙합·랩", "랩":"힙합·랩", "hip-hop":"힙합·랩", "hiphop":"힙합·랩",
+  "R&B":"R&B·소울", "알앤비":"R&B·소울", "소울":"R&B·소울",
+  "록":"록·메탈", "락":"록·메탈", "메탈":"록·메탈", "rock":"록·메탈",
+  "EDM":"일렉트로닉", "edm":"일렉트로닉", "일렉":"일렉트로닉", "댄스":"일렉트로닉",
+  "lo-fi":"휴식·앰비언트", "lofi":"휴식·앰비언트", "로파이":"휴식·앰비언트", "뉴에이지":"휴식·앰비언트", "앰비언트":"휴식·앰비언트",
+  "시티팝":"J-pop", "제이팝":"J-pop", "jpop":"J-pop", "케이팝":"K-pop", "kpop":"K-pop", "아이돌":"K-pop",
+  "ost":"OST", "사운드트랙":"OST", "클래시컬":"클래식", "재즈":"재즈"
+};
+function normalizeGenres(list) {
+  const out = [];
+  for (const g of (Array.isArray(list) ? list : [])) {
+    if (typeof g !== "string") continue;
+    const k = g.trim(); const n = GENRES.includes(k) ? k : (GENRE_ALIAS[k] || GENRE_ALIAS[k.toLowerCase()] || null);
+    if (n && !out.includes(n)) out.push(n);
+  }
+  return out;
+}
 
 const NL_PROMPT = [
   "너는 대학생이 쓴 한국어 문장을 읽고, 정해진 목록에서 감정 단어를 골라 주는 분류기다. 좌표나 숫자 점수를 만들지 마라.",
@@ -40,7 +60,7 @@ const NL_PROMPT = [
   "5. 몸이 피곤한 것(지쳤어요)과 마음이 가라앉은 것(우울해요·무기력해요)을 구분한다. 시험·발표 앞의 초조함은 긴장돼요, 막연한 걱정은 불안해요·걱정돼요.",
   "6. 말투 참고: 현타=무기력해요, 킹받다·빡치다=짜증나요 또는 화나요, 멘붕=불안해요, 번아웃=지쳤어요+무기력해요, 텐션 올리고 싶다=신나고 싶어요.",
   "7. constraints.lyric: '가사 없는·연주곡만'=instrumental_only, '가사 적은·방해 안 되는'=prefer_instrumental, '따라 부를·노래 있는'=prefer_vocal, 언급 없으면 null.",
-  "8. constraints.genres 는 장르 목록에 있는 것만. constraints.minutes 는 듣고 싶은 시간(분) 또는 null. 특정 가수·곡 이름은 무시한다.",
+  "8. constraints.genres 는 장르 목록에 있는 표기 그대로. 사용자가 쓰는 말과의 대응: 케이팝·kpop·아이돌 노래=K-pop, 제이팝·jpop·일본 노래·애니송(가수 노래)=J-pop, 힙합·랩=힙합·랩, 알앤비·소울=R&B·소울, 록·락·메탈·밴드=록·메탈, 팝송·외국 노래=팝, EDM·일렉·클럽·댄스=일렉트로닉, 로파이·lo-fi·잔잔한 배경음·뉴에이지·앰비언트=휴식·앰비언트, 영화·드라마·게임 음악=OST. '한국 노래'만 쓰면 장르를 비운다(K-pop 은 아이돌·댄스 계열이다). constraints.minutes 는 듣고 싶은 시간(분) 또는 null. 특정 가수·곡 이름은 무시한다.",
   "9. 감정이나 음악 얘기가 아니거나 도저히 알 수 없으면 unsure=true 로 두고 나머지는 비운다.",
   "",
   "예시",
@@ -50,6 +70,8 @@ const NL_PROMPT = [
   '{"interpretation":"요즘 의욕이 없고 처져 있어요.","current":[{"label":"무기력해요","intensity":2}],"target":null,"constraints":{"lyric":null,"genres":[],"minutes":null},"unsure":false}',
   "설명: 과제 끝나서 살짝 들뜸ㅋㅋ 가사 없는 재즈로 텐션 더 올리고 싶다",
   '{"interpretation":"과제를 끝내 조금 들떠 있고 더 신나고 싶어 해요.","current":[{"label":"기분 좋아요","intensity":1}],"target":"신나고 싶어요","constraints":{"lyric":"instrumental_only","genres":["재즈"],"minutes":null},"unsure":false}',
+  "설명: 너무 답답해서 제이팝이나 케이팝으로 20분만 기분 전환하고 싶어",
+  '{"interpretation":"많이 답답해서 20분간 기분 전환을 원해요.","current":[{"label":"답답해요","intensity":3}],"target":"기분 전환하고 싶어요","constraints":{"lyric":null,"genres":["J-pop","K-pop"],"minutes":20},"unsure":false}',
   "",
   "JSON 하나만 출력한다. 키 순서는 interpretation, current, target, constraints, unsure."
 ].join("\n");
@@ -91,7 +113,7 @@ export default async function handler(req, res) {
   const KEY = process.env.GEMINI_API_KEY || "";
 
   if (req.method === "GET") {
-    return res.status(200).json({ ok: true, hasKey: !!KEY, version: 2 });
+    return res.status(200).json({ ok: true, hasKey: !!KEY, version: 3, genres: GENRES });
   }
   if (req.method !== "POST") {
     return res.status(405).json({ error: "POST only" });
@@ -131,6 +153,16 @@ export default async function handler(req, res) {
         }
       );
       const data = await r.json().catch(() => ({}));
+      if (action === "generate" && r.ok) {
+        /* 모델 답의 constraints.genres 를 새 이름으로 정규화해 돌려준다 — 옛 이름·별칭으로 답해도 앱에서 버려지지 않게 */
+        try {
+          const part = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0];
+          if (part && typeof part.text === "string") {
+            const obj = JSON.parse(part.text);
+            if (obj && obj.constraints) { obj.constraints.genres = normalizeGenres(obj.constraints.genres); part.text = JSON.stringify(obj); }
+          }
+        } catch (_) { /* JSON 이 아니면 그대로 둔다 */ }
+      }
       return res.status(r.status).json(data);
     }
 
