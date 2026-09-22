@@ -1,375 +1,384 @@
 {
-  "schema_version": 2,
-  "rules_version": "v2.2.0",
-  "note": "숫자는 전부 설계 사전값(prior). 골드셋 채점으로 재추정 대상.",
-  "coordinate_space": "percentile",
-  "coordinate_note": "퍼센타일 좌표 p(x) = (x보다 작은 곡 수 + 같은 값 곡 수의 절반) / 전체. 기준선이 계산 없이 0.5 가 되고, \"거리 0.1\" 이 \"카탈로그의 10%\" 라는 뜻이 되어 희소 구간(휴식 사분면)에서도 후보가 고갈되지 않습니다. 화면에 그리는 좌표는 원 V/A 유지.\n",
-  "inputs": {
-    "now": {
-      "type": "point",
-      "axes": [
-        "V",
-        "A"
-      ]
-    },
-    "target": {
-      "type": "point",
-      "axes": [
-        "V",
-        "A"
-      ]
-    },
-    "load": {
-      "type": "ordinal",
-      "range": [
-        0,
-        4
-      ],
-      "source": "context"
-    },
-    "genres": {
-      "type": "set",
-      "optional": true
-    },
-    "duration_min": {
-      "type": "numeric",
-      "range": [
-        5,
-        90
-      ],
-      "default": 30
-    },
-    "user": {
-      "type": "profile",
-      "optional": true
-    },
-    "seed": {
-      "type": "string",
-      "optional": true
-    },
-    "gates": {
-      "type": "set",
-      "optional": true
-    }
+ "schema_version": 2,
+ "rules_version": "v2.3.0",
+ "note": "숫자는 전부 설계 사전값(prior). 골드셋 채점으로 재추정 대상. | v2.3.0 (2026-09-22): preference.implicit(완주·스킵·벽 표), preference.pref_weight(μ, 0) 추가 — 엔진 2.5.0. rules_hash 는 tools/rules_hash.mjs --write 로 갱신할 것.",
+ "coordinate_space": "percentile",
+ "coordinate_note": "퍼센타일 좌표 p(x) = (x보다 작은 곡 수 + 같은 값 곡 수의 절반) / 전체. 기준선이 계산 없이 0.5 가 되고, \"거리 0.1\" 이 \"카탈로그의 10%\" 라는 뜻이 되어 희소 구간(휴식 사분면)에서도 후보가 고갈되지 않습니다. 화면에 그리는 좌표는 원 V/A 유지.\n",
+ "inputs": {
+  "now": {
+   "type": "point",
+   "axes": [
+    "V",
+    "A"
+   ]
   },
-  "baselines": {
-    "V": {
-      "stat": "median",
-      "field": "V"
-    },
-    "A": {
-      "stat": "median",
-      "field": "A"
-    },
-    "observed": {
-      "V": 0.527,
-      "A": 0.593,
-      "n": 2398,
-      "measured_on": "2026-08-15"
-    },
-    "evidence": "원좌표에서 0.5 로 자르면 활기 48% / 격정 15% 로 쏠림. 기준선은 상수가 아니라 통계량.\n"
+  "target": {
+   "type": "point",
+   "axes": [
+    "V",
+    "A"
+   ]
   },
-  "axes": {
-    "V": {
-      "field": "V",
-      "range": [
-        0,
-        1
-      ]
-    },
-    "A": {
-      "field": "A",
-      "range": [
-        0,
-        1
-      ]
-    }
+  "load": {
+   "type": "ordinal",
+   "range": [
+    0,
+    4
+   ],
+   "source": "context"
   },
-  "quadrants": {
-    "격정": {
-      "V": "below",
-      "A": "above"
-    },
-    "활기": {
-      "V": "above",
-      "A": "above"
-    },
-    "침잠": {
-      "V": "below",
-      "A": "below"
-    },
-    "휴식": {
-      "V": "above",
-      "A": "below"
-    }
+  "genres": {
+   "type": "set",
+   "optional": true
   },
-  "gates": [
-    {
-      "id": "exclude_spoken",
-      "field": "spokenness",
-      "op": "percentile_below",
-      "value": 0.8,
-      "evidence": "문턱 전용. '상위 20% 제외'는 O, '말 비중 0.42' 점수화는 X."
+  "duration_min": {
+   "type": "numeric",
+   "range": [
+    5,
+    90
+   ],
+   "default": 30
+  },
+  "user": {
+   "type": "profile",
+   "optional": true
+  },
+  "seed": {
+   "type": "string",
+   "optional": true
+  },
+  "gates": {
+   "type": "set",
+   "optional": true
+  }
+ },
+ "baselines": {
+  "V": {
+   "stat": "median",
+   "field": "V"
+  },
+  "A": {
+   "stat": "median",
+   "field": "A"
+  },
+  "observed": {
+   "V": 0.527,
+   "A": 0.593,
+   "n": 2398,
+   "measured_on": "2026-08-15"
+  },
+  "evidence": "원좌표에서 0.5 로 자르면 활기 48% / 격정 15% 로 쏠림. 기준선은 상수가 아니라 통계량.\n"
+ },
+ "axes": {
+  "V": {
+   "field": "V",
+   "range": [
+    0,
+    1
+   ]
+  },
+  "A": {
+   "field": "A",
+   "range": [
+    0,
+    1
+   ]
+  }
+ },
+ "quadrants": {
+  "격정": {
+   "V": "below",
+   "A": "above"
+  },
+  "활기": {
+   "V": "above",
+   "A": "above"
+  },
+  "침잠": {
+   "V": "below",
+   "A": "below"
+  },
+  "휴식": {
+   "V": "above",
+   "A": "below"
+  }
+ },
+ "gates": [
+  {
+   "id": "exclude_spoken",
+   "field": "spokenness",
+   "op": "percentile_below",
+   "value": 0.8,
+   "evidence": "문턱 전용. '상위 20% 제외'는 O, '말 비중 0.42' 점수화는 X."
+  },
+  {
+   "id": "exclude_instrumental",
+   "field": "instrumental",
+   "op": "is_false"
+  },
+  {
+   "id": "instrumental_only",
+   "field": "instrumental",
+   "op": "is_true"
+  }
+ ],
+ "selection": {
+  "primitive": "region",
+  "region": {
+   "type": "waypoint_neighborhood",
+   "radius": 0.15,
+   "min_pool": 48,
+   "grow_factor": 1.6,
+   "max_grow": 3
+  },
+  "evidence": "V 상위 10% 중 저에너지 곡은 5.0%(전체 22.3%). '밝은 곡'을 V 랭킹으로 뽑으면 잔잔하고 밝은 곡이 구조적으로 배제됨. 동시에 사분면 하드 컷은 경계 ±0.05 의 31.7% 를 0.001 차이로 잘라내므로, 영역은 사분면 박스가 아니라 waypoint 이웃으로 정의.\n",
+  "radius_evidence": "[2026-08-16 실카탈로그 2,326곡 재측정] radius 0.28 은 합성 120곡 기준값이었고, 실카탈로그에서는 한 경유지가 234~633곡을 후보로 끌어옵니다. band=0.05 가 어차피 가장 가까운 밴드만 고르므로 나머지는 순수 낭비였습니다 — 품질은 평평한데 속도만 16배 차이납니다.\n  radius  적합도오차  커버리지  여정초과  ms/추천\n  0.28     0.0320     338곡     0.0%     207\n  0.20     0.0318     336곡     0.0%     105\n  0.15     0.0317     333곡     0.0%      56   ← 채택\n  0.10     0.0314     331곡     0.0%      26\n  0.06     0.0314     325곡     0.0%      13\n반경이 잡는 곡 수(퍼센타일 공간): 중앙 0.28→633 / 0.15→172, 격정 구석(가장 희소) 0.28→234 / 0.15→83. 0.15 에서도 빔이 걸음당 쓰는 48 을 넘습니다.\n",
+  "min_pool_evidence": "[2026-08-16] 이전 값 12 는 실카탈로그에서 **한 번도 발동하지 않는 죽은 값**이었습니다(12/24/48 이 모든 지표에서 완전히 동일). 반경이 최소 234곡을 잡고 있었기 때문입니다. 48 = search.beam_width(8) × search.expand_per_step(6) — 빔이 한 걸음에 실제로 소비하는 후보 수입니다. 반경을 더 줄이거나 카탈로그가 희소해지면 이 값이 실제 가드로 작동합니다.\n"
+ },
+ "ranking": {
+  "terms": [
+   {
+    "id": "va_fit",
+    "type": "weighted_euclidean",
+    "axes": {
+     "V": 1.0,
+     "A": 1.0
     },
-    {
-      "id": "exclude_instrumental",
-      "field": "instrumental",
-      "op": "is_false"
-    },
-    {
-      "id": "instrumental_only",
-      "field": "instrumental",
-      "op": "is_true"
-    }
+    "direction": "minimize",
+    "evidence": "v1 은 태그 6종 가중합으로 PC1 이 분산 80.6% 를 먹었다. 축은 V/A 둘뿐."
+   }
   ],
-  "selection": {
-    "primitive": "region",
-    "region": {
-      "type": "waypoint_neighborhood",
-      "radius": 0.15,
-      "min_pool": 48,
-      "grow_factor": 1.6,
-      "max_grow": 3
-    },
-    "evidence": "V 상위 10% 중 저에너지 곡은 5.0%(전체 22.3%). '밝은 곡'을 V 랭킹으로 뽑으면 잔잔하고 밝은 곡이 구조적으로 배제됨. 동시에 사분면 하드 컷은 경계 ±0.05 의 31.7% 를 0.001 차이로 잘라내므로, 영역은 사분면 박스가 아니라 waypoint 이웃으로 정의.\n",
-    "radius_evidence": "[2026-08-16 실카탈로그 2,326곡 재측정] radius 0.28 은 합성 120곡 기준값이었고, 실카탈로그에서는 한 경유지가 234~633곡을 후보로 끌어옵니다. band=0.05 가 어차피 가장 가까운 밴드만 고르므로 나머지는 순수 낭비였습니다 — 품질은 평평한데 속도만 16배 차이납니다.\n  radius  적합도오차  커버리지  여정초과  ms/추천\n  0.28     0.0320     338곡     0.0%     207\n  0.20     0.0318     336곡     0.0%     105\n  0.15     0.0317     333곡     0.0%      56   ← 채택\n  0.10     0.0314     331곡     0.0%      26\n  0.06     0.0314     325곡     0.0%      13\n반경이 잡는 곡 수(퍼센타일 공간): 중앙 0.28→633 / 0.15→172, 격정 구석(가장 희소) 0.28→234 / 0.15→83. 0.15 에서도 빔이 걸음당 쓰는 48 을 넘습니다.\n",
-    "min_pool_evidence": "[2026-08-16] 이전 값 12 는 실카탈로그에서 **한 번도 발동하지 않는 죽은 값**이었습니다(12/24/48 이 모든 지표에서 완전히 동일). 반경이 최소 234곡을 잡고 있었기 때문입니다. 48 = search.beam_width(8) × search.expand_per_step(6) — 빔이 한 걸음에 실제로 소비하는 후보 수입니다. 반경을 더 줄이거나 카탈로그가 희소해지면 이 값이 실제 가드로 작동합니다.\n"
-  },
-  "ranking": {
-    "terms": [
-      {
-        "id": "va_fit",
-        "type": "weighted_euclidean",
-        "axes": {
-          "V": 1.0,
-          "A": 1.0
-        },
-        "direction": "minimize",
-        "evidence": "v1 은 태그 6종 가중합으로 PC1 이 분산 80.6% 를 먹었다. 축은 V/A 둘뿐."
-      }
-    ],
-    "tiebreakers": [
-      {
-        "id": "va_source_rank",
-        "type": "ordinal_map",
-        "field": "va_source",
-        "order": [
-          "manual",
-          "golden_set_calibrated",
-          "golden_set_provisional",
-          "lyric_blend",
-          "deam",
-          "provider"
-        ]
-      },
-      {
-        "id": "popularity",
-        "type": "numeric",
-        "field": "popularity",
-        "direction": "desc"
-      }
+  "tiebreakers": [
+   {
+    "id": "va_source_rank",
+    "type": "ordinal_map",
+    "field": "va_source",
+    "order": [
+     "manual",
+     "golden_set_calibrated",
+     "golden_set_provisional",
+     "lyric_blend",
+     "deam",
+     "provider"
     ]
-  },
-  "path": {
-    "progress_weight": 0.35,
-    "jump_weight": 0.1,
-    "jump_weight_evidence": "전환 비용(transition cost): cost += jump_weight × dist(후보, 이전 곡). 급격한 곡 간 변화를 억제한다.\n[2026-09-21 실카탈로그 4,117곡, 시나리오 600] λ: 0→0.1 에서 최대 전환 거리 0.224→0.197(−13%), 0.25/0.5/1 은 0.197/0.197/0.196 으로 평탄. 도착 오차 0.031→0.033→0.035→0.037 로 λ 가 클수록 증가. 스트레스 0~4 단계별(단계당 120)로도 모든 단계가 0.1 에서 꺾이고 고스트레스에서 λ 를 키워도 이득 ≤0.003 → 스트레스 무관 단일값. 이득이 끝나는 가장 작은 값 0.1 채택.",
-    "evidence": "ISO 는 '이동'이 본체이므로 비용은 경로 단위로 매긴다. 비용 = Σ(양자화 거리) + progress_weight × Σ(진행 페널티) + jump_weight × Σ(인접 곡 거리).\n[2026-09-21] fit_weight(1.0) 제거 — 균등 배율이라 결과 무관. progress_weight 는 0 이면 역행 2배(0.025→0.052), 0.2~1.5 는 결과 동일 → 켜져 있어야 하며 값은 결과에 닿지 않음(양자화 때문)."
-  },
-  "preference": {
-    "band": 0.05,
-    "combine": "mean_like_rate",
-    "combine_evidence": "[2026-09-17] 선호 점수 = 이 곡이 속한 묶음들(이 곡·가수·장르·곡 특징)에서의 '내 좋아요 비율'의 단순 평균.\n묶음 점수 = (그 묶음에서 좋아요한 곡 + 2·p0) / (그 묶음에서 들어본 곡 + 2).  p0 = 내 평균 좋아요 비율 = (좋아요 + 1) / (들어본 곡 + 2).\n'들어본 곡' = 10초 이상 들어 좋아요를 누를 수 있었던 곡(앱의 좋아요 활성화 조건과 같은 기준). 기록이 없는 묶음은 p0 — '모르면 내 평균'.\n즉 피드백(좋아요)을 보상으로, 들려준 횟수를 시도로 세는 방식입니다. 우리가 정한 가중치는 없고, 값은 전부 그 사용자의 기록에서 나옵니다.\n\n이전 방식(weighted: 개인 0.35 / 가수 0.30 / 장르 0.20 / 전체 사용자 0.15 가중합)을 바꾼 이유:\n 1) 네 가중치에 근거가 없었습니다. 어느 묶음이 더 중요한지 정할 자료가 없고 사람마다 다를 수 있으므로 차등을 두지 않습니다.\n 2) 좋아요가 그 곡 하나에만 적용됐고, 그 곡은 최근 재생 제외에 걸려 후보에서 빠졌습니다. 실측(engine.js): 한 세션 8곡 전부에 좋아요를 눌러도 다음 세션이 0곡 바뀜.\n 3) '전체 사용자 통계'가 항상 15% 섞였습니다. '평균이 아니라 나를 위한 추천'과 어긋납니다 — 이제 들어본 곡이 하나도 없을 때(콜드스타트)만 씁니다.\n\n좋아요 '개수'가 아니라 '들은 것 중 비율'인 이유: 개수만 세면 흔한 묶음이 무조건 이깁니다. 카탈로그의 90% 가 보컬곡이면 좋아요의 90% 도 보컬곡이라 '보컬곡을 좋아한다'는 결론이 나오는데, 이는 취향이 아니라 기저율입니다. 첫 구현(좋아요 +1 / 싫어요 −1 표)에서 실제로 이 문제가 나와 — 좋아요만 누르는 사용자에게 거의 모든 곡이 '내 취향'으로 판정됨 — 폐기했습니다.\n비교 실험용: combine 을 \"weighted\" 로 두면 이전 방식(weights 사용)으로 돌아갑니다.\n",
-    "features": [
-      {
-        "id": "spokenness",
-        "field": "spokenness",
-        "bins": 3,
-        "label": "말 비중"
-      },
-      {
-        "id": "tempo",
-        "field": "tempo",
-        "bins": 3,
-        "label": "빠르기"
-      },
-      {
-        "id": "instrumental",
-        "field": "instrumental",
-        "bins": "boolean",
-        "label": "연주곡 여부"
-      }
-    ],
-    "features_evidence": "좋아요를 '그 곡'에서 '이런 곡'으로 넓히는 단위. 전곡에 값이 있는 세 가지만 씁니다(장르는 카탈로그에 데이터가 채워지면 같은 방식으로 자동 합류 — genre_affinity).\n연속값은 전체 카탈로그의 3분위(낮음/중간/높음)로 묶습니다. 경계는 상수가 아니라 카탈로그에서 계산하는 통계량이라 세 묶음의 곡 수가 같습니다. 3 은 낮음과 높음을 가르면서 가운데를 둘 수 있는 가장 작은 수 — 묶음을 늘리면 묶음당 좋아요 기록이 희박해져 점수가 0.5 근처에 머뭅니다.\n",
-    "dislike_scope": {
-      "_no_reason": [
-        "artist",
-        "genre",
-        "features"
-      ],
-      "not_my_taste": [
-        "artist",
-        "genre",
-        "features"
-      ],
-      "vocal_bother": [
-        "spokenness",
-        "instrumental"
-      ],
-      "path_jump": [],
-      "mood_mismatch": [],
-      "too_repetitive": []
-    },
-    "dislike_scope_evidence": "싫어요한 곡을 어느 묶음의 '좋아하지 않음'으로 셀지는 사용자가 고른 이유(MISFIT_REASONS)가 정합니다. '분위기가 튀어요'는 경로의 문제, '기분이랑 달라요'는 입력 해석의 문제, '너무 자주 나와요'는 반복의 문제라 그 곡의 가수나 특징 탓이 아닙니다 → 어느 묶음에서도 세지 않습니다(그 곡만 제외). '가사·목소리가 거슬려요'는 말 비중·연주곡 여부에서만 셉니다. 이유를 고르지 않은 싫어요는 취향으로 봅니다.\n싫어요와 '듣고 아무 반응 없음'은 묶음 점수에서 같은 무게(좋아하지 않음 1건)입니다 — 더 세게 칠 배수를 정할 근거가 없습니다. 싫어요의 추가 효과는 그 곡이 다시 나오지 않는 것입니다.\n",
-    "weights": {
-      "personal_feedback": 0.35,
-      "liked_artist": 0.3,
-      "liked_genre": 0.2,
-      "global_feedback": 0.15
-    },
-    "shrinkage": {
-      "personal_k": 2,
-      "global_k": 10
-    },
-    "shrinkage_evidence": "점수 = (좋아요 + prior·k) / (들어본 곡 + k). k = 2 는 라플라스의 계승 규칙 (성공 + 1) / (시도 + 2) 의 '가상의 관측 2건'입니다 — '아무것도 모를 때는 반반'이라는 가정에서 나오는 값이라 출처를 댈 수 있습니다(이전 값 3 은 근거 없는 사전값). 내 평균 p0 는 이 규칙 그대로 계산하고, 묶음 점수는 같은 무게(2건)를 p0 에 둡니다: '이 묶음의 곡을 내 평균 비율로 2곡 들어본 것으로 쳐 준다'.\n예(p0 = 0.30): 기록 없음 0.30 → 1곡 듣고 1곡 좋아요 0.53 → 5곡 중 4곡 0.66 → 5곡 중 0곡 0.09.\nglobal_k = 10 은 아직 사전값입니다(전체 사용자 통계는 이제 콜드스타트에서만 쓰입니다).\n",
-    "decay": {
-      "half_life_days": 14
-    },
-    "evidence": "선호를 거리 점수에 더하면 v1 의 합산 실패가 그대로 재발함. 대신 적합도 동급 구간 안에서만 정렬을 바꾼다 — \"ISO 가 어디로 갈지 정하고, 선호가 그중 무엇을 고른다\". 싫어요는 정렬이 아니라 게이트(하드 제외)로 처리.\n",
-    "band_tradeoff": "band 는 다양성과 경로 충실도의 유일한 레버입니다.\n\n[2026-08-16 재측정] 실카탈로그 2,326곡 · 시나리오 8개 × 시드 12개 = 480픽:\n  band  평균밴드크기  최대점프  여정초과%  평균적합도오차  커버리지  첫곡최빈%\n  0.005      1.6      0.462     0.0%       0.0137      54곡    13%\n  0.01       2.0      0.462     0.0%       0.0144      63곡    13%\n  0.02       3.8      0.470     0.0%       0.0156      85곡    13%\n  0.03       6.5      0.520     0.0%       0.0202     145곡     4%\n  0.05      21.1      0.556     0.6%       0.0320     253곡     4%   ← 채택\n  0.08      53.2      0.662     2.5%       0.0497     306곡     3%\n  0.12     116.6      0.861     6.0%       0.0747     330곡     4%\n  0.16     203.2      0.861     9.2%       0.1007     309곡     4%   ← 이전 값 (합성 120곡 기준)\n\n'여정초과%' = 곡과 곡 사이 원좌표 이동이 지금→목표 전체 거리보다 컸던 비율. 화면에서 경로가 튀어 보이는 현상의 직접 지표입니다.\n\n이전 값 0.16 은 합성 카탈로그 120곡에서 고른 값인데, 2,326곡에서는 평균 203곡이 '적합도 동급'으로 묶여 기하 밴드가 사실상 한 통이 됩니다. 그러면 chosen_by 가 100% preference 가 되어 '기하가 어디로 갈지 정하고 선호가 그중 무엇을 고른다' 는 두 레인 설계가 무너지고, 선호·시드가 경로 자체를 정하게 됩니다 — 여정 거리보다 먼 점프가 9.2% 발생한 원인입니다.\n\n0.05 는 여정초과를 0.6% 로 낮추면서 커버리지 253곡을 지킵니다. 더 줄이면(0.03) 여정초과는 0% 가 되지만 커버리지가 145곡으로 43% 줄어듭니다. 다양성을 더 사고 싶으면 0.03, 더 팔고 싶으면 0.08 — 그 이상은 두 레인이 다시 무너집니다.\n"
-  },
-  "variation": {
-    "enabled": true,
-    "pref_bucket": 0.05,
-    "seed_input": "seed",
-    "evidence": "측정(합성 카탈로그 120곡, 비슷한 상태 200회): 커버리지 33.3%, 한 곡이 77회 등장, 첫 곡이 28% 확률로 동일. v1 의 '추천 커버리지 1.9%' 와 같은 병. 무작위를 그냥 넣으면 JS/Python 패리티와 골드셋 재현성이 깨지므로 시드 기반으로 한다 — 시드가 같으면 결과도 같고, 시드가 없으면 변이가 0 이라 채점 결과는 그대로다. 우선순위는 기하 밴드 > 선호 버킷 > 시드 변이 > 결정론적 동점처리. 무작위가 적합도나 선호를 이기지 못한다.\n",
-    "seed_recipe": "앱에서 `${uid}:${YYYY-MM-DD}:${세션번호}` 를 권장. 같은 날 같은 사용자가 다시 들어오면 세션번호가 올라가 다른 곡이 나오고, 로그는 시드로 재현 가능하다. 콜드스타트(비로그인)는 익명 uid 로 충분하다.\n"
-  },
-  "search": {
-    "strategy": "beam",
-    "beam_width": 8,
-    "expand_per_step": 6
-  },
-  "diversity": {
-    "max_per_artist": 2,
-    "exclude_recent_played": true,
-    "recent_note": "세션 간 반복의 근본 해결은 변이가 아니라 이 필드입니다. 앱이 users 의 listeningHistory 에서 최근 재생 곡 ID 를 inputs.user.recent_played 로 넘겨야 작동합니다. 안 넘기면 매 세션이 첫 세션처럼 취급됩니다.\n"
-  },
-  "genre_policy": {
-    "mode": "hard_if_sufficient",
-    "evidence": "8/11 결정 — 장르는 가점이 아니라 최우선 조건. 부족할 때만 타장르 보충."
-  },
-  "iso": {
-    "song_count": {
-      "per_minutes": 3.73,
-      "min": 3,
-      "max": 9
-    },
-    "song_count_evidence": "[2026-08-16] per_minutes 6 은 근거 없는 사전값이었습니다. Spotify export 3,289곡 실측: 중앙값 224초 = 3.73분 (평균 3.77분, 25%~75% = 3.29~4.20분). 3.73 으로 맞추면 요청 시간과 실제 재생 시간이 맞습니다 — 30분 → 8곡 × 3.73 = 29.8분.\n곡 수: 10분→3(min) · 15분→4 · 20분→5 · 25분→6 · 30분→8 · 34분 이상→9(max).\nmax 를 15 에서 9 로 내린 것은 제품 결정입니다(팀 요청 2026-08-16). 34분을 넘는 요청은 경유 시퀀스가 9곡에서 멈추고 나머지는 추가 추천으로 채웁니다.\nmin 3 은 유지 — 5분 요청 처리는 보류 상태입니다(5분에 3곡이면 11분 분량).\n",
-    "min_step_span": 0.05,
-    "min_step_span_evidence": "[2026-08-16 팀 요청] 지금과 목표가 가까운데 경유 곡을 많이 끼우면, 걸음 하나가 preference.band(0.05)보다 잘게 쪼개집니다. 그 폭 안의 곡들은 순위가 구분하지 못하므로 어느 곡이 뽑힐지는 선호와 시드가 정하고, 경로가 '지금에서 목표로 가는 선'이 아니라 좁은 덩어리 안을 맴도는 잡음이 됩니다.\n경유 곡 수 = max(song_count.min, min(시간 기준, floor(여정거리 / min_step_span) + 1)).\n값을 band 와 같은 0.05 로 둔 것은 '순위가 구분할 수 있는 최소 폭'이 곧 band 이기 때문입니다 — band 를 바꾸면 이 값도 같이 검토하세요.\n\n[실측 · 30·60분 × 시드 4] 원좌표 기준:\n  시나리오      여정    span=0        span=0.05       span=0.03\n  매우가까움    0.071   9곡 점프0.051  3곡 점프0.089   4곡 점프0.074\n  가까움        0.085   9곡 점프0.068  3곡 점프0.139   4곡 점프0.089\n  중간          0.495   9곡 점프0.250  9곡 점프0.250   9곡 점프0.250\n  멂            0.617   9곡 점프0.359  9곡 점프0.359   9곡 점프0.359\n  매우멂        0.781   9곡 점프0.448  9곡 점프0.448   9곡 점프0.448\n\n⚠️ 정직하게: 가까운 여정에서 곡을 줄이면 **개별 점프는 오히려 커집니다**(0.051 → 0.089). 곡이 많으면 목표 근처에 다 몰려 있어 한 걸음이 작아지기 때문입니다. 줄이는 이유는 점프 크기가 아니라 '9곡을 들으며 제자리를 맴도는' 것을 막기 위해서입니다.\n점프가 커지는 직접 원인은 n=3 이 transition_point 의 퇴화 구간이라는 점입니다(at=0.5 일 때 t = 0, 1, 1 — 중간 경유지가 0개라 두 번째 곡이 곧바로 목표). transition_point 를 손보면 span=0.05 에서도 점프가 줄어듭니다. 그 전까지 점프를 더 중시한다면 span=0.03(곡 수 4)이 절충안입니다.\n\n엔진 출력의 song_count 필드(by_time / by_journey / effective / journey)로 어느 쪽이 곡 수를 정했는지 로그에서 구분됩니다.\n",
-    "transition_point": [
-      {
-        "up_to": 15,
-        "at": 1.0
-      },
-      {
-        "up_to": 25,
-        "at": 0.75
-      },
-      {
-        "up_to": 999,
-        "at": 0.6
-      }
-    ],
-    "transition_point_evidence": "[2026-09-17 이관] index.html 의 임시 오버라이드(+tp-override)로만 존재하던 값을 규칙 파일로 옮겼습니다. 앱이 실제로 써 온 값과 동일하므로 추천 결과는 바뀌지 않습니다(회귀 144/144 동일).\n이전 compiled 값(10분 0.7 / 30분 0.5 / 90분 0.45)은 곡 수가 3일 때 t = 0, 1, 1 이 되어 중간 경유지가 0개인 퇴화 구간을 만들었습니다(change.md 8-B·18번). 현재 값은 ~15분(≈4곡) 전 구간 이동, ~25분 마지막 1~2곡 유지, 그 이상 후반 40% 유지. 2026-09-15 파라미터 스윕(engine.js 5,220회)에서 이 값이 이전 compiled 값보다 나은 것으로 확인되어 이관을 결정했습니다.\n경계(15·25분)는 song_count(3.73분/곡, 최대 9곡)에 종속 — 곡 수 규칙을 바꾸면 함께 검토하세요.\n",
-    "no_repeat_within": 3,
-    "removed_2026_09_21": "max_step_jump·step_limit_scale·modulators.stress_step_limit·inputs.stress 제거. [2026-09-21 실카탈로그 600 시나리오] 제약 발동 0.01회/세션, 제거 시 곡 변경 4%, 최대 전환·도착 오차·역행 전부 동일. 급변 억제는 path.jump_weight 가 담당."
-  },
-  "modulators": [
-    {
-      "id": "load_spoken_gate",
-      "input": "load",
-      "applies_to": "gates",
-      "when_gte": 3,
-      "adds_gate": "exclude_spoken",
-      "evidence": "상황부하가 높으면 말 많은 곡 제외. load 단독 함수."
-    }
+   },
+   {
+    "id": "popularity",
+    "type": "numeric",
+    "field": "popularity",
+    "direction": "desc"
+   }
+  ]
+ },
+ "path": {
+  "progress_weight": 0.35,
+  "jump_weight": 0.1,
+  "jump_weight_evidence": "전환 비용(transition cost): cost += jump_weight × dist(후보, 이전 곡). 급격한 곡 간 변화를 억제한다.\n[2026-09-21 실카탈로그 4,117곡, 시나리오 600] λ: 0→0.1 에서 최대 전환 거리 0.224→0.197(−13%), 0.25/0.5/1 은 0.197/0.197/0.196 으로 평탄. 도착 오차 0.031→0.033→0.035→0.037 로 λ 가 클수록 증가. 스트레스 0~4 단계별(단계당 120)로도 모든 단계가 0.1 에서 꺾이고 고스트레스에서 λ 를 키워도 이득 ≤0.003 → 스트레스 무관 단일값. 이득이 끝나는 가장 작은 값 0.1 채택.",
+  "evidence": "ISO 는 '이동'이 본체이므로 비용은 경로 단위로 매긴다. 비용 = Σ(양자화 거리) + progress_weight × Σ(진행 페널티) + jump_weight × Σ(인접 곡 거리).\n[2026-09-21] fit_weight(1.0) 제거 — 균등 배율이라 결과 무관. progress_weight 는 0 이면 역행 2배(0.025→0.052), 0.2~1.5 는 결과 동일 → 켜져 있어야 하며 값은 결과에 닿지 않음(양자화 때문)."
+ },
+ "preference": {
+  "band": 0.05,
+  "combine": "mean_like_rate",
+  "combine_evidence": "[2026-09-17] 선호 점수 = 이 곡이 속한 묶음들(이 곡·가수·장르·곡 특징)에서의 '내 좋아요 비율'의 단순 평균.\n묶음 점수 = (그 묶음에서 좋아요한 곡 + 2·p0) / (그 묶음에서 들어본 곡 + 2).  p0 = 내 평균 좋아요 비율 = (좋아요 + 1) / (들어본 곡 + 2).\n'들어본 곡' = 10초 이상 들어 좋아요를 누를 수 있었던 곡(앱의 좋아요 활성화 조건과 같은 기준). 기록이 없는 묶음은 p0 — '모르면 내 평균'.\n즉 피드백(좋아요)을 보상으로, 들려준 횟수를 시도로 세는 방식입니다. 우리가 정한 가중치는 없고, 값은 전부 그 사용자의 기록에서 나옵니다.\n\n이전 방식(weighted: 개인 0.35 / 가수 0.30 / 장르 0.20 / 전체 사용자 0.15 가중합)을 바꾼 이유:\n 1) 네 가중치에 근거가 없었습니다. 어느 묶음이 더 중요한지 정할 자료가 없고 사람마다 다를 수 있으므로 차등을 두지 않습니다.\n 2) 좋아요가 그 곡 하나에만 적용됐고, 그 곡은 최근 재생 제외에 걸려 후보에서 빠졌습니다. 실측(engine.js): 한 세션 8곡 전부에 좋아요를 눌러도 다음 세션이 0곡 바뀜.\n 3) '전체 사용자 통계'가 항상 15% 섞였습니다. '평균이 아니라 나를 위한 추천'과 어긋납니다 — 이제 들어본 곡이 하나도 없을 때(콜드스타트)만 씁니다.\n\n좋아요 '개수'가 아니라 '들은 것 중 비율'인 이유: 개수만 세면 흔한 묶음이 무조건 이깁니다. 카탈로그의 90% 가 보컬곡이면 좋아요의 90% 도 보컬곡이라 '보컬곡을 좋아한다'는 결론이 나오는데, 이는 취향이 아니라 기저율입니다. 첫 구현(좋아요 +1 / 싫어요 −1 표)에서 실제로 이 문제가 나와 — 좋아요만 누르는 사용자에게 거의 모든 곡이 '내 취향'으로 판정됨 — 폐기했습니다.\n비교 실험용: combine 을 \"weighted\" 로 두면 이전 방식(weights 사용)으로 돌아갑니다.\n",
+  "features": [
+   {
+    "id": "spokenness",
+    "field": "spokenness",
+    "bins": 3,
+    "label": "말 비중"
+   },
+   {
+    "id": "tempo",
+    "field": "tempo",
+    "bins": 3,
+    "label": "빠르기"
+   },
+   {
+    "id": "instrumental",
+    "field": "instrumental",
+    "bins": "boolean",
+    "label": "연주곡 여부"
+   }
   ],
-  "explanations": [
-    {
-      "id": "step_move",
-      "template": "{step_index}/{step_total} 걸음 — {quadrant} 쪽 곡이에요.",
-      "binds": [
-        "step_index",
-        "step_total",
-        "quadrant"
-      ]
-    },
-    {
-      "id": "by_preference",
-      "when": {
-        "trace_key": "chosen_by",
-        "equals": "preference"
-      },
-      "template": "비슷한 후보 {band_size}곡 중 취향에 맞춰 골랐어요.",
-      "binds": [
-        "chosen_by",
-        "band_size"
-      ]
-    },
-    {
-      "id": "by_my_record",
-      "when": {
-        "trace_key": "pref_match",
-        "equals": true
-      },
-      "template": "내가 좋아요한 곡들과 닮았어요 ({pref_basis}).",
-      "binds": [
-        "pref_basis"
-      ]
-    },
-    {
-      "id": "source_trust",
-      "when": {
-        "trace_key": "va_source",
-        "equals": "manual"
-      },
-      "template": "이 곡의 감정값은 사람이 직접 매긴 값이에요.",
-      "binds": [
-        "va_source"
-      ]
-    }
-  ],
-  "rules_hash": "7a9dc8823c84",
-  "trace_keys": [
+  "features_evidence": "좋아요를 '그 곡'에서 '이런 곡'으로 넓히는 단위. 전곡에 값이 있는 세 가지만 씁니다(장르는 카탈로그에 데이터가 채워지면 같은 방식으로 자동 합류 — genre_affinity).\n연속값은 전체 카탈로그의 3분위(낮음/중간/높음)로 묶습니다. 경계는 상수가 아니라 카탈로그에서 계산하는 통계량이라 세 묶음의 곡 수가 같습니다. 3 은 낮음과 높음을 가르면서 가운데를 둘 수 있는 가장 작은 수 — 묶음을 늘리면 묶음당 좋아요 기록이 희박해져 점수가 0.5 근처에 머뭅니다.\n",
+  "dislike_scope": {
+   "_no_reason": [
     "artist",
-    "band_size",
-    "chosen_by",
-    "coord_space",
-    "gates_failed",
-    "gates_passed",
-    "jitter",
-    "path_cost",
-    "pool_size",
-    "pref_basis",
-    "pref_bucket",
-    "pref_match",
-    "pref_score",
-    "quadrant",
-    "rules_hash",
-    "seed",
-    "song_A",
-    "song_V",
-    "step_index",
-    "step_relaxed",
-    "step_total",
-    "strategy",
-    "tiebreak_used",
-    "va_distance",
-    "va_source",
-    "wp_A",
-    "wp_V"
+    "genre",
+    "features"
+   ],
+   "not_my_taste": [
+    "artist",
+    "genre",
+    "features"
+   ],
+   "vocal_bother": [
+    "spokenness",
+    "instrumental"
+   ],
+   "path_jump": [],
+   "mood_mismatch": [],
+   "too_repetitive": []
+  },
+  "dislike_scope_evidence": "싫어요한 곡을 어느 묶음의 '좋아하지 않음'으로 셀지는 사용자가 고른 이유(MISFIT_REASONS)가 정합니다. '분위기가 튀어요'는 경로의 문제, '기분이랑 달라요'는 입력 해석의 문제, '너무 자주 나와요'는 반복의 문제라 그 곡의 가수나 특징 탓이 아닙니다 → 어느 묶음에서도 세지 않습니다(그 곡만 제외). '가사·목소리가 거슬려요'는 말 비중·연주곡 여부에서만 셉니다. 이유를 고르지 않은 싫어요는 취향으로 봅니다.\n싫어요와 '듣고 아무 반응 없음'은 묶음 점수에서 같은 무게(좋아하지 않음 1건)입니다 — 더 세게 칠 배수를 정할 근거가 없습니다. 싫어요의 추가 효과는 그 곡이 다시 나오지 않는 것입니다.\n",
+  "implicit": {
+   "completion_weight": 0.5,
+   "completion_min": 0.8,
+   "skip_weight": 1.0,
+   "pinned_weight": 1.0
+  },
+  "implicit_evidence": "[2026-09-22, 엔진 2.5.0] 들어본 곡 한 곡이 주는 표. 좋아요 = 좋음 1 (단위). 벽에 붙임 = 좋음 pinned_weight, 시간 감쇠 없음('취향 선언'은 떼기 전까지 유지). 일찍 넘김(skipped) = 안 좋음 skip_weight. 끝까지 들음(completion ≥ completion_min)인데 좋아요 없음 = 좋음 completion_weight + 안 좋음 (1−completion_weight). 들었지만 반응 없음 = 안 좋음 1 (2.4.0 과 같음).\n근거: 스킵은 부정 신호(Brost et al. 2019 MSSD), 청취 완료는 긍정 신호로 명시 피드백을 보완(Hu·Koren·Volinsky 2008, Jawaheer et al. 2010). ⚠️ 값 0.5·0.8·1.0 은 아직 근거 없음 — 문헌은 '암시 신호는 명시보다 약하다'까지만 말함. 오프라인 스윕(가짜 프로필, 선호곡 겹침 vs 도착 오차)으로 민감도를 확인한 뒤 확정할 것. 벽·좋아요를 '내 평균'(like_base)에 세지 않는 이유: 벽은 들어본 곡이 아니라 선언이라 기저율이 아님. 들어본 곡이 없고 벽만 있으면 중립점 0.5 로 개인화한다(콜드스타트에서도 벽이 첫 세션부터 작동).",
+  "weights": {
+   "personal_feedback": 0.35,
+   "liked_artist": 0.3,
+   "liked_genre": 0.2,
+   "global_feedback": 0.15
+  },
+  "shrinkage": {
+   "personal_k": 2,
+   "global_k": 10
+  },
+  "shrinkage_evidence": "점수 = (좋아요 + prior·k) / (들어본 곡 + k). k = 2 는 라플라스의 계승 규칙 (성공 + 1) / (시도 + 2) 의 '가상의 관측 2건'입니다 — '아무것도 모를 때는 반반'이라는 가정에서 나오는 값이라 출처를 댈 수 있습니다(이전 값 3 은 근거 없는 사전값). 내 평균 p0 는 이 규칙 그대로 계산하고, 묶음 점수는 같은 무게(2건)를 p0 에 둡니다: '이 묶음의 곡을 내 평균 비율로 2곡 들어본 것으로 쳐 준다'.\n예(p0 = 0.30): 기록 없음 0.30 → 1곡 듣고 1곡 좋아요 0.53 → 5곡 중 4곡 0.66 → 5곡 중 0곡 0.09.\nglobal_k = 10 은 아직 사전값입니다(전체 사용자 통계는 이제 콜드스타트에서만 쓰입니다).\n",
+  "decay": {
+   "half_life_days": 14
+  },
+  "evidence": "선호를 거리 점수에 더하면 v1 의 합산 실패가 그대로 재발함. 대신 적합도 동급 구간 안에서만 정렬을 바꾼다 — \"ISO 가 어디로 갈지 정하고, 선호가 그중 무엇을 고른다\". 싫어요는 정렬이 아니라 게이트(하드 제외)로 처리.\n",
+  "band_tradeoff": "band 는 다양성과 경로 충실도의 유일한 레버입니다.\n\n[2026-08-16 재측정] 실카탈로그 2,326곡 · 시나리오 8개 × 시드 12개 = 480픽:\n  band  평균밴드크기  최대점프  여정초과%  평균적합도오차  커버리지  첫곡최빈%\n  0.005      1.6      0.462     0.0%       0.0137      54곡    13%\n  0.01       2.0      0.462     0.0%       0.0144      63곡    13%\n  0.02       3.8      0.470     0.0%       0.0156      85곡    13%\n  0.03       6.5      0.520     0.0%       0.0202     145곡     4%\n  0.05      21.1      0.556     0.6%       0.0320     253곡     4%   ← 채택\n  0.08      53.2      0.662     2.5%       0.0497     306곡     3%\n  0.12     116.6      0.861     6.0%       0.0747     330곡     4%\n  0.16     203.2      0.861     9.2%       0.1007     309곡     4%   ← 이전 값 (합성 120곡 기준)\n\n'여정초과%' = 곡과 곡 사이 원좌표 이동이 지금→목표 전체 거리보다 컸던 비율. 화면에서 경로가 튀어 보이는 현상의 직접 지표입니다.\n\n이전 값 0.16 은 합성 카탈로그 120곡에서 고른 값인데, 2,326곡에서는 평균 203곡이 '적합도 동급'으로 묶여 기하 밴드가 사실상 한 통이 됩니다. 그러면 chosen_by 가 100% preference 가 되어 '기하가 어디로 갈지 정하고 선호가 그중 무엇을 고른다' 는 두 레인 설계가 무너지고, 선호·시드가 경로 자체를 정하게 됩니다 — 여정 거리보다 먼 점프가 9.2% 발생한 원인입니다.\n\n0.05 는 여정초과를 0.6% 로 낮추면서 커버리지 253곡을 지킵니다. 더 줄이면(0.03) 여정초과는 0% 가 되지만 커버리지가 145곡으로 43% 줄어듭니다. 다양성을 더 사고 싶으면 0.03, 더 팔고 싶으면 0.08 — 그 이상은 두 레인이 다시 무너집니다.\n",
+  "pref_weight": 0.0,
+  "pref_weight_evidence": "[2026-09-22, 엔진 2.5.0] 선호 비용 μ: cost += pref_weight × (내 중립점 − 선호 점수). 0 이면 2.4.0 과 동일하게 선호는 같은 밴드 안 동률 깨기(variation.pref_bucket)에만 쓰인다. 2.4.0 까지 선호가 순위에 거의 닿지 않은 이유: 밴드가 정확히 같은 후보끼리만 비교되고 부분 일치 점수 차가 pref_bucket 0.05 를 못 넘음(9/20 확인). μ 값은 스윕으로 정한다 — 가짜 프로필(벽 가수 2명·좋아요 5곡·스킵 몇 곡) 50개 × 시나리오로 μ 0/0.05/0.1/0.2/0.5 를 돌려, 선호곡 겹침(그 가수·닮은 곡 등장률)이 더 안 오르고 도착 오차·전환 거리만 나빠지는 지점 채택. 아직 미실시 → 0."
+ },
+ "variation": {
+  "enabled": true,
+  "pref_bucket": 0.05,
+  "seed_input": "seed",
+  "evidence": "측정(합성 카탈로그 120곡, 비슷한 상태 200회): 커버리지 33.3%, 한 곡이 77회 등장, 첫 곡이 28% 확률로 동일. v1 의 '추천 커버리지 1.9%' 와 같은 병. 무작위를 그냥 넣으면 JS/Python 패리티와 골드셋 재현성이 깨지므로 시드 기반으로 한다 — 시드가 같으면 결과도 같고, 시드가 없으면 변이가 0 이라 채점 결과는 그대로다. 우선순위는 기하 밴드 > 선호 버킷 > 시드 변이 > 결정론적 동점처리. 무작위가 적합도나 선호를 이기지 못한다.\n",
+  "seed_recipe": "앱에서 `${uid}:${YYYY-MM-DD}:${세션번호}` 를 권장. 같은 날 같은 사용자가 다시 들어오면 세션번호가 올라가 다른 곡이 나오고, 로그는 시드로 재현 가능하다. 콜드스타트(비로그인)는 익명 uid 로 충분하다.\n"
+ },
+ "search": {
+  "strategy": "beam",
+  "beam_width": 8,
+  "expand_per_step": 6
+ },
+ "diversity": {
+  "max_per_artist": 2,
+  "exclude_recent_played": true,
+  "recent_note": "세션 간 반복의 근본 해결은 변이가 아니라 이 필드입니다. 앱이 users 의 listeningHistory 에서 최근 재생 곡 ID 를 inputs.user.recent_played 로 넘겨야 작동합니다. 안 넘기면 매 세션이 첫 세션처럼 취급됩니다.\n"
+ },
+ "genre_policy": {
+  "mode": "hard_if_sufficient",
+  "evidence": "8/11 결정 — 장르는 가점이 아니라 최우선 조건. 부족할 때만 타장르 보충."
+ },
+ "iso": {
+  "song_count": {
+   "per_minutes": 3.73,
+   "min": 3,
+   "max": 9
+  },
+  "song_count_evidence": "[2026-08-16] per_minutes 6 은 근거 없는 사전값이었습니다. Spotify export 3,289곡 실측: 중앙값 224초 = 3.73분 (평균 3.77분, 25%~75% = 3.29~4.20분). 3.73 으로 맞추면 요청 시간과 실제 재생 시간이 맞습니다 — 30분 → 8곡 × 3.73 = 29.8분.\n곡 수: 10분→3(min) · 15분→4 · 20분→5 · 25분→6 · 30분→8 · 34분 이상→9(max).\nmax 를 15 에서 9 로 내린 것은 제품 결정입니다(팀 요청 2026-08-16). 34분을 넘는 요청은 경유 시퀀스가 9곡에서 멈추고 나머지는 추가 추천으로 채웁니다.\nmin 3 은 유지 — 5분 요청 처리는 보류 상태입니다(5분에 3곡이면 11분 분량).\n",
+  "min_step_span": 0.05,
+  "min_step_span_evidence": "[2026-08-16 팀 요청] 지금과 목표가 가까운데 경유 곡을 많이 끼우면, 걸음 하나가 preference.band(0.05)보다 잘게 쪼개집니다. 그 폭 안의 곡들은 순위가 구분하지 못하므로 어느 곡이 뽑힐지는 선호와 시드가 정하고, 경로가 '지금에서 목표로 가는 선'이 아니라 좁은 덩어리 안을 맴도는 잡음이 됩니다.\n경유 곡 수 = max(song_count.min, min(시간 기준, floor(여정거리 / min_step_span) + 1)).\n값을 band 와 같은 0.05 로 둔 것은 '순위가 구분할 수 있는 최소 폭'이 곧 band 이기 때문입니다 — band 를 바꾸면 이 값도 같이 검토하세요.\n\n[실측 · 30·60분 × 시드 4] 원좌표 기준:\n  시나리오      여정    span=0        span=0.05       span=0.03\n  매우가까움    0.071   9곡 점프0.051  3곡 점프0.089   4곡 점프0.074\n  가까움        0.085   9곡 점프0.068  3곡 점프0.139   4곡 점프0.089\n  중간          0.495   9곡 점프0.250  9곡 점프0.250   9곡 점프0.250\n  멂            0.617   9곡 점프0.359  9곡 점프0.359   9곡 점프0.359\n  매우멂        0.781   9곡 점프0.448  9곡 점프0.448   9곡 점프0.448\n\n⚠️ 정직하게: 가까운 여정에서 곡을 줄이면 **개별 점프는 오히려 커집니다**(0.051 → 0.089). 곡이 많으면 목표 근처에 다 몰려 있어 한 걸음이 작아지기 때문입니다. 줄이는 이유는 점프 크기가 아니라 '9곡을 들으며 제자리를 맴도는' 것을 막기 위해서입니다.\n점프가 커지는 직접 원인은 n=3 이 transition_point 의 퇴화 구간이라는 점입니다(at=0.5 일 때 t = 0, 1, 1 — 중간 경유지가 0개라 두 번째 곡이 곧바로 목표). transition_point 를 손보면 span=0.05 에서도 점프가 줄어듭니다. 그 전까지 점프를 더 중시한다면 span=0.03(곡 수 4)이 절충안입니다.\n\n엔진 출력의 song_count 필드(by_time / by_journey / effective / journey)로 어느 쪽이 곡 수를 정했는지 로그에서 구분됩니다.\n",
+  "transition_point": [
+   {
+    "up_to": 15,
+    "at": 1.0
+   },
+   {
+    "up_to": 25,
+    "at": 0.75
+   },
+   {
+    "up_to": 999,
+    "at": 0.6
+   }
   ],
-  "sensitivity_2026_09_21": "one-at-a-time 민감도 분석(실카탈로그 4,117곡, 시나리오 400). 최대 전환 거리 변동폭: iso.transition_point 0.063 > path.jump_weight 0.030 > search.expand_per_step 0.022 > iso.min_step_span 0.016 > search.beam_width 0.008 = preference.band 0.008 > step_limit 0.001 = path.progress_weight 0.000 = selection.region.radius 0.000. 도착 오차 변동폭은 preference.band 0.043 이 최대(0.025 에서 0.023 으로 개선되나 선호 레인 작동 폭과 상충하여 보류). 채택: 보폭 제약 제거, λ=0.1, 나머지 현재값 유지."
+  "transition_point_evidence": "[2026-09-17 이관] index.html 의 임시 오버라이드(+tp-override)로만 존재하던 값을 규칙 파일로 옮겼습니다. 앱이 실제로 써 온 값과 동일하므로 추천 결과는 바뀌지 않습니다(회귀 144/144 동일).\n이전 compiled 값(10분 0.7 / 30분 0.5 / 90분 0.45)은 곡 수가 3일 때 t = 0, 1, 1 이 되어 중간 경유지가 0개인 퇴화 구간을 만들었습니다(change.md 8-B·18번). 현재 값은 ~15분(≈4곡) 전 구간 이동, ~25분 마지막 1~2곡 유지, 그 이상 후반 40% 유지. 2026-09-15 파라미터 스윕(engine.js 5,220회)에서 이 값이 이전 compiled 값보다 나은 것으로 확인되어 이관을 결정했습니다.\n경계(15·25분)는 song_count(3.73분/곡, 최대 9곡)에 종속 — 곡 수 규칙을 바꾸면 함께 검토하세요.\n",
+  "no_repeat_within": 3,
+  "removed_2026_09_21": "max_step_jump·step_limit_scale·modulators.stress_step_limit·inputs.stress 제거. [2026-09-21 실카탈로그 600 시나리오] 제약 발동 0.01회/세션, 제거 시 곡 변경 4%, 최대 전환·도착 오차·역행 전부 동일. 급변 억제는 path.jump_weight 가 담당."
+ },
+ "modulators": [
+  {
+   "id": "load_spoken_gate",
+   "input": "load",
+   "applies_to": "gates",
+   "when_gte": 3,
+   "adds_gate": "exclude_spoken",
+   "evidence": "상황부하가 높으면 말 많은 곡 제외. load 단독 함수."
+  }
+ ],
+ "explanations": [
+  {
+   "id": "step_move",
+   "template": "{step_index}/{step_total} 걸음 — {quadrant} 쪽 곡이에요.",
+   "binds": [
+    "step_index",
+    "step_total",
+    "quadrant"
+   ]
+  },
+  {
+   "id": "by_preference",
+   "when": {
+    "trace_key": "chosen_by",
+    "equals": "preference"
+   },
+   "template": "비슷한 후보 {band_size}곡 중 취향에 맞춰 골랐어요.",
+   "binds": [
+    "chosen_by",
+    "band_size"
+   ]
+  },
+  {
+   "id": "by_my_record",
+   "when": {
+    "trace_key": "pref_match",
+    "equals": true
+   },
+   "template": "내가 좋아요한 곡들과 닮았어요 ({pref_basis}).",
+   "binds": [
+    "pref_basis"
+   ]
+  },
+  {
+   "id": "source_trust",
+   "when": {
+    "trace_key": "va_source",
+    "equals": "manual"
+   },
+   "template": "이 곡의 감정값은 사람이 직접 매긴 값이에요.",
+   "binds": [
+    "va_source"
+   ]
+  }
+ ],
+ "rules_hash": "7a9dc8823c84",
+ "trace_keys": [
+  "artist",
+  "band_size",
+  "chosen_by",
+  "coord_space",
+  "gates_failed",
+  "gates_passed",
+  "jitter",
+  "path_cost",
+  "pool_size",
+  "pref_basis",
+  "pref_bucket",
+  "pref_match",
+  "pref_score",
+  "quadrant",
+  "rules_hash",
+  "seed",
+  "song_A",
+  "song_V",
+  "step_index",
+  "step_relaxed",
+  "step_total",
+  "strategy",
+  "tiebreak_used",
+  "va_distance",
+  "va_source",
+  "wp_A",
+  "wp_V"
+ ],
+ "sensitivity_2026_09_21": "one-at-a-time 민감도 분석(실카탈로그 4,117곡, 시나리오 400). 최대 전환 거리 변동폭: iso.transition_point 0.063 > path.jump_weight 0.030 > search.expand_per_step 0.022 > iso.min_step_span 0.016 > search.beam_width 0.008 = preference.band 0.008 > step_limit 0.001 = path.progress_weight 0.000 = selection.region.radius 0.000. 도착 오차 변동폭은 preference.band 0.043 이 최대(0.025 에서 0.023 으로 개선되나 선호 레인 작동 폭과 상충하여 보류). 채택: 보폭 제약 제거, λ=0.1, 나머지 현재값 유지."
 }
