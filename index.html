@@ -857,8 +857,8 @@ async function loadEngine() {
   } else {
     /* ?v= : 이미 설치된 옛 서비스워커(azt-v6)는 이 두 파일을 캐시에서 먼저 돌려준다.
        주소를 바꿔 그 캐시를 비켜 간다. 새 서비스워커(v7)부터는 network-first 라 값은 안 올려도 된다. */
-    AZT_ENGINE = await import("./engine/engine.js?v=253");
-    const res = await fetch("./rules/rules.compiled.json?v=253", { cache: "no-cache" });
+    AZT_ENGINE = await import("./engine/engine.js?v=254");
+    const res = await fetch("./rules/rules.compiled.json?v=254", { cache: "no-cache" });
     if (!res.ok) throw new Error("rules.compiled.json HTTP " + res.status);
     AZT_RULES = await res.json();
   }
@@ -2589,7 +2589,7 @@ function setupPlayer(seq) {
         const keepPlaying = (wantPlayOverride !== undefined) ? wantPlayOverride : (started || uiPlaying) && !userPaused;
         const prevDur = (QUEUE[QUEUE_IDX] && TRACK_METRICS[QUEUE[QUEUE_IDX].id]) ? TRACK_METRICS[QUEUE[QUEUE_IDX].id].durationSec : 0;
         LOAD = { token: (LOAD ? LOAD.token : 0) + 1, idx, at: performance.now(), wantPlay: keepPlaying, playTries: 0, failed: false, prevDur,
-                 lastTryAt: 0, trace: { hidden_at_request: document.hidden, first_update_ms: null, started_ms: null, visible_ms: null, tries_at_ms: [] } };
+                 lastTryAt: 0, trace: { hidden_at_request: document.hidden, first_update_ms: null, first_paused_ms: null, first_playing_flag_ms: null, started_ms: null, visible_ms: null, tries_at_ms: [] } };
         QUEUE_IDX=idx; LAST_PLAYBACK_POSITION=null; fired={}; started=false; advancing=true;
         ctrl.loadUri("spotify:track:"+QUEUE[idx].trackId);
         if(keepPlaying){ LOAD.playTries=1; LOAD.lastTryAt=performance.now(); LOAD.trace.tries_at_ms.push(0); try{ctrl.play();}catch(e){console.warn("Spotify 다음 곡 자동재생 실패",e)} }
@@ -2606,14 +2606,15 @@ function setupPlayer(seq) {
         if(!LOAD || LOAD.traced) return; LOAD.traced = true;
         const T = LOAD.trace, now = performance.now();
         logEvent("track_transition_trace",{ song_id:QUEUE[QUEUE_IDX]?.id, position:QUEUE_IDX+1, outcome,
-          hidden_at_request:T.hidden_at_request, first_update_ms:T.first_update_ms, started_ms:T.started_ms, visible_ms:T.visible_ms,
+          hidden_at_request:T.hidden_at_request, hidden_now:document.hidden, first_update_ms:T.first_update_ms, first_paused_ms:T.first_paused_ms, first_playing_flag_ms:T.first_playing_flag_ms, started_ms:T.started_ms, visible_ms:T.visible_ms,
           play_tries:LOAD.playTries, tries_at_ms:T.tries_at_ms.map(Math.round), total_ms:Math.round(now-LOAD.at) });
       };
       const settleLoad = () => {
         if(!LOAD || !advancing) return;
         const now = performance.now(), waited = now - LOAD.at;
         if(LOAD.wantPlay && !started && waited > 1200 && now - LOAD.lastTryAt > 1500 && LOAD.playTries < 8){
-          LOAD.playTries++; LOAD.lastTryAt=now; LOAD.trace.tries_at_ms.push(waited); try{ctrl.play();}catch(e){}
+          LOAD.playTries++; LOAD.lastTryAt=now; LOAD.trace.tries_at_ms.push(waited);
+          try{ if(LOAD.trace.first_playing_flag_ms!=null && LOAD.playTries%2===0){ ctrl.pause(); } ctrl.play(); }catch(e){}
         }
         if(waited > 15000){
           advancing=false; setNavState();
@@ -2713,11 +2714,22 @@ function setupPlayer(seq) {
             const fresh = pos < 3 && !sameAsPrev;
             if(!fresh) return;                      // 이전 곡의 늦은 업데이트 → 버림
             if(LOAD.trace.first_update_ms===null) LOAD.trace.first_update_ms=Math.round(performance.now()-LOAD.at);
-            if(LOAD.wantPlay && d.isPaused){
-              if(LOAD.playTries < 8){ LOAD.playTries++; LOAD.lastTryAt=performance.now(); LOAD.trace.tries_at_ms.push(performance.now()-LOAD.at); try{ctrl.play();}catch(e){} }
-              return;
+            /* [9/23 v254] '재생 중'은 임베드가 isPaused=false 라고 말하는 게 아니라 **위치가 실제로 움직였을 때**다.
+               백그라운드 기록: isPaused=false 응답이 1초 만에 왔는데 위치는 0 에 머물렀고, 코드는 그 말을 믿고 재시도를 멈췄다. */
+            if(LOAD.wantPlay){
+              const moving = !d.isPaused && pos > 0.5;
+              if(!moving){
+                if(d.isPaused && LOAD.trace.first_paused_ms==null) LOAD.trace.first_paused_ms=Math.round(performance.now()-LOAD.at);
+                if(!d.isPaused && LOAD.trace.first_playing_flag_ms==null) LOAD.trace.first_playing_flag_ms=Math.round(performance.now()-LOAD.at);
+                const now=performance.now();
+                if(LOAD.playTries < 8 && now-LOAD.lastTryAt > 1500){
+                  LOAD.playTries++; LOAD.lastTryAt=now; LOAD.trace.tries_at_ms.push(now-LOAD.at);
+                  try{ if(d.isPaused) ctrl.play(); else { ctrl.pause(); ctrl.play(); } }catch(e){}   // '재생 중이라는데 안 움직임' → 멈췄다 다시
+                }
+                return;                              // 움직일 때까지 전환을 닫지 않는다 (15초 뒤 settleLoad 가 정리)
+              }
+              LOAD.trace.started_ms=Math.round(performance.now()-LOAD.at);
             }
-            if(!d.isPaused && pos>0){ LOAD.trace.started_ms=Math.round(performance.now()-LOAD.at); }
             advancing=false; setNavState(); traceLog(LOAD.wantPlay ? "started" : "loaded_paused");
           }
         }
