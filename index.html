@@ -857,8 +857,8 @@ async function loadEngine() {
   } else {
     /* ?v= : 이미 설치된 옛 서비스워커(azt-v6)는 이 두 파일을 캐시에서 먼저 돌려준다.
        주소를 바꿔 그 캐시를 비켜 간다. 새 서비스워커(v7)부터는 network-first 라 값은 안 올려도 된다. */
-    AZT_ENGINE = await import("./engine/engine.js?v=251");
-    const res = await fetch("./rules/rules.compiled.json?v=251", { cache: "no-cache" });
+    AZT_ENGINE = await import("./engine/engine.js?v=252");
+    const res = await fetch("./rules/rules.compiled.json?v=252", { cache: "no-cache" });
     if (!res.ok) throw new Error("rules.compiled.json HTTP " + res.status);
     AZT_RULES = await res.json();
   }
@@ -2587,27 +2587,41 @@ function setupPlayer(seq) {
         if (!QUEUE[idx]) return;
         flushActiveMetric("track_switch");
         const keepPlaying = (wantPlayOverride !== undefined) ? wantPlayOverride : (started || uiPlaying) && !userPaused;
-        LOAD = { token: (LOAD ? LOAD.token : 0) + 1, idx, at: performance.now(), wantPlay: keepPlaying, playTries: 0, failed: false };
+        LOAD = { token: (LOAD ? LOAD.token : 0) + 1, idx, at: performance.now(), wantPlay: keepPlaying, playTries: 0, failed: false,
+                 lastTryAt: 0, trace: { hidden_at_request: document.hidden, first_update_ms: null, started_ms: null, visible_ms: null, tries_at_ms: [] } };
         QUEUE_IDX=idx; LAST_PLAYBACK_POSITION=null; fired={}; started=false; advancing=true;
         ctrl.loadUri("spotify:track:"+QUEUE[idx].trackId);
-        if(keepPlaying){ LOAD.playTries=1; try{ctrl.play();}catch(e){console.warn("Spotify 다음 곡 자동재생 실패",e)} }
+        if(keepPlaying){ LOAD.playTries=1; LOAD.lastTryAt=performance.now(); LOAD.trace.tries_at_ms.push(0); try{ctrl.play();}catch(e){console.warn("Spotify 다음 곡 자동재생 실패",e)} }
         ensureMetric(QUEUE[idx].id, 0);
         if (TRACK_METRICS[QUEUE[idx].id]) TRACK_METRICS[QUEUE[idx].id]._completed = false;   // 재청취 시 완주 자동전환 다시 허용
         setNow(); setNavState(); syncPlayerUI(); setPlayUI(keepPlaying);
       };
       /* 전환 감시: 새 곡 업데이트가 안 와도 버튼이 영원히 잠기지 않게. 백그라운드에서는 이 함수 자체가
          늦게 불릴 수 있지만, 늦게라도 불리면 그 자리에서 정리한다(탭으로 돌아올 때도 즉시 호출). */
+      /* [9/23 오후] 백그라운드에서는 새 곡의 playback_update 자체가 안 와서, 업데이트를 기다렸다 play() 하는 경로가 막힌다.
+         그래서 응답을 기다리지 않고 벽시계 기준 1.5초마다 play() 를 다시 보낸다(최대 8회, 15초). 로드가 끝나기 전에 보낸 play() 는
+         임베드가 버리므로 반복이 필요하다. 어느 단계에서 막히는지 남기려고 시각을 trace 에 적고, 끝나면 한 줄로 로그한다. */
+      const traceLog = (outcome) => {
+        if(!LOAD || LOAD.traced) return; LOAD.traced = true;
+        const T = LOAD.trace, now = performance.now();
+        logEvent("track_transition_trace",{ song_id:QUEUE[QUEUE_IDX]?.id, position:QUEUE_IDX+1, outcome,
+          hidden_at_request:T.hidden_at_request, first_update_ms:T.first_update_ms, started_ms:T.started_ms, visible_ms:T.visible_ms,
+          play_tries:LOAD.playTries, tries_at_ms:T.tries_at_ms.map(Math.round), total_ms:Math.round(now-LOAD.at) });
+      };
       const settleLoad = () => {
         if(!LOAD || !advancing) return;
-        const waited = performance.now() - LOAD.at;
-        if(LOAD.wantPlay && !started && waited > 3000 && LOAD.playTries < 2){ LOAD.playTries++; try{ctrl.play();}catch(e){} }
-        if(waited > 12000){
-          advancing=false;
+        const now = performance.now(), waited = now - LOAD.at;
+        if(LOAD.wantPlay && !started && waited > 1200 && now - LOAD.lastTryAt > 1500 && LOAD.playTries < 8){
+          LOAD.playTries++; LOAD.lastTryAt=now; LOAD.trace.tries_at_ms.push(waited); try{ctrl.play();}catch(e){}
+        }
+        if(waited > 15000){
+          advancing=false; setNavState();
           if(LOAD.wantPlay && !started && !LOAD.failed){
             LOAD.failed=true; setPlayUI(false);
             const t=$("playerFeedbackToast"); if(t) t.textContent="다음 곡을 자동으로 잇지 못했어요. ▶ 재생을 눌러주세요.";
             logEvent("track_autoplay_failed",{song_id:QUEUE[QUEUE_IDX]?.id,position:QUEUE_IDX+1});
           }
+          traceLog(started ? "started" : "gave_up");
         }
       };
       ensureMetric(QUEUE[0].id, 0); setNow(); setNavState(); syncPlayerUI(); const ov=$("playOverlay"); if(ov) ov.hidden=false;
@@ -2672,10 +2686,16 @@ function setupPlayer(seq) {
         if(est >= m.durationSec + 1.5) finishTrack(song, m, how);
       };
       const WATCHDOG = setInterval(()=>checkEnded("watchdog"), 1000);
-      const onVisible = () => { if(!document.hidden) checkEnded("visible"); };
+      const onVisible = () => { if(document.hidden) return; if(LOAD && LOAD.trace.visible_ms===null && advancing) LOAD.trace.visible_ms=Math.round(performance.now()-LOAD.at); checkEnded("visible"); };
+      /* 워커 타이머는 숨긴 탭에서도 덜 늦춰진다 — 메인 타이머가 늦어질 때의 예비 신호 */
+      let TICKER = null;
+      try {
+        TICKER = new Worker(URL.createObjectURL(new Blob(["setInterval(()=>postMessage(1),1000)"],{type:"text/javascript"})));
+        TICKER.onmessage = () => checkEnded("worker");
+      } catch(e) { TICKER = null; }
       document.addEventListener("visibilitychange", onVisible);
       const _destroy = ctrl.destroy ? ctrl.destroy.bind(ctrl) : null;
-      ctrl.destroy = () => { clearInterval(WATCHDOG); document.removeEventListener("visibilitychange", onVisible); if(_destroy) _destroy(); };
+      ctrl.destroy = () => { clearInterval(WATCHDOG); if(TICKER) TICKER.terminate(); document.removeEventListener("visibilitychange", onVisible); if(_destroy) _destroy(); };
 
       ctrl.addListener("playback_update", e=>{
         const d=e.data||{}, song=QUEUE[QUEUE_IDX]; if(!song)return;
@@ -2687,9 +2707,13 @@ function setupPlayer(seq) {
           else {
             const fresh = pos < 3 || (dur>0 && Math.abs(dur - (TRACK_METRICS[song.id]?.durationSec||dur)) < 0.5);
             if(!fresh) return;                      // 이전 곡의 늦은 업데이트 → 버림
-            if(LOAD.wantPlay && d.isPaused && LOAD.playTries < 3){ LOAD.playTries++; try{ctrl.play();}catch(e){} return; }
-            if(!d.isPaused || !LOAD.wantPlay){ advancing=false; }
-            else return;
+            if(LOAD.trace.first_update_ms===null) LOAD.trace.first_update_ms=Math.round(performance.now()-LOAD.at);
+            if(LOAD.wantPlay && d.isPaused){
+              if(LOAD.playTries < 8){ LOAD.playTries++; LOAD.lastTryAt=performance.now(); LOAD.trace.tries_at_ms.push(performance.now()-LOAD.at); try{ctrl.play();}catch(e){} }
+              return;
+            }
+            if(!d.isPaused && pos>0){ LOAD.trace.started_ms=Math.round(performance.now()-LOAD.at); }
+            advancing=false; setNavState(); traceLog(LOAD.wantPlay ? "started" : "loaded_paused");
           }
         }
         setPlayUI(!d.isPaused && Number(d.position||0)>0);
