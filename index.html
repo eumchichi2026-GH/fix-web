@@ -598,7 +598,7 @@ html[data-theme=dark] .time-out{color:var(--accent)}
               <div class="setting-card"><label for="listenTime">시간 · <span class="time-out"><b id="listenTimeOut">30</b>분</span></label><input type="range" class="time-slider" id="listenTime" min="5" max="90" step="5" value="30" aria-describedby="listenTimeOut" aria-label="감상 시간(분)"/><div class="time-labels"><span>5분</span><span>90분</span></div></div>
               <details class="manual pace-box" id="paceBox"><summary>감정 여정 · 자세히 보기</summary><div class="manual-body"><div class="genre-chips pace-chips" id="paceChips" role="group" aria-label="감정 여정 방식 선택"><button type="button" data-pace="fast" aria-pressed="false">빠르게 목표에 도달하고 싶어요</button><button type="button" data-pace="slow" aria-pressed="false">천천히 감정 변화를 갖고 싶어요</button></div><p class="plane-note" id="paceNote">선택하지 않으면 감상 시간에 맞춰 알아서 조절해요. 같은 버튼을 다시 누르면 해제됩니다.</p></div></details>
               <div class="setting-card"><label>장르</label><div class="genre-chips" id="genreChips" role="group" aria-label="추천 장르 선택"></div></div>
-              <div class="setting-card"><label for="lyric">가사</label><select id="lyric"><option value="no_preference" selected>상관없어요</option><option value="instrumental_only">가사 없는 곡</option><option value="prefer_instrumental">가사 적은 곡</option><option value="prefer_vocal">가사 있는 곡</option></select></div>
+              <div class="setting-card"><label for="lyric">가사</label><select id="lyric"><option value="no_preference" selected>상관없어요</option><option value="instrumental_only">가사 없는 곡</option><option value="prefer_vocal">가사 있는 곡</option></select></div>
             </div>
             <div class="floor-meta"><span class="status-dot"></span><span id="statusText">연결 준비 중…</span></div>
             <div class="go-wrap"><button id="go" class="primary" disabled>오늘의 음악 받기 →</button></div>
@@ -625,7 +625,7 @@ html[data-theme=dark] .time-out{color:var(--accent)}
         </div>
         <div id="myOwn" class="my-grid">
           <div class="my-card wall-card"><h3>나의 벽</h3><p>좋아하는 곡과 가수가 메모지로 붙어요. 떼고 붙이면 그게 곧 내 취향이에요.</p><div id="myPlaylist"></div></div>
-          <div class="my-card"><h3>설정</h3><div class="my-edit"><div class="my-edit-row"><label for="myDisplayName">이름</label><input id="myDisplayName" type="text" maxlength="40" placeholder="내 이름"></div><div class="my-edit-row"><label for="myRecommendMinutes">시간 · <span class="time-out"><b id="myRecommendMinutesOut">30</b>분</span></label><input type="range" class="time-slider" id="myRecommendMinutes" min="5" max="90" step="5" value="30" aria-label="기본 감상 시간(분)"/></div><div class="my-edit-row"><label>화면</label><div class="theme-toggle" role="group" aria-label="화면 테마"><button type="button" id="themeLight" aria-pressed="true">라이트</button><button type="button" id="themeDark" aria-pressed="false">다크</button></div></div><div class="my-edit-row"><label for="myLyric">가사</label><select id="myLyric"><option value="no_preference">상관없어요</option><option value="instrumental_only">가사 없는 곡</option><option value="prefer_instrumental">가사 적은 곡</option><option value="prefer_vocal">가사 있는 곡</option></select></div><div><label style="display:block;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:6px">장르</label><div id="myGenreEdit" class="my-genre-edit"></div></div><button id="saveMyPrefs" class="my-save" type="button">저장</button><p id="myEditStatus" class="plane-note"></p></div></div>
+          <div class="my-card"><h3>설정</h3><div class="my-edit"><div class="my-edit-row"><label for="myDisplayName">이름</label><input id="myDisplayName" type="text" maxlength="40" placeholder="내 이름"></div><div class="my-edit-row"><label for="myRecommendMinutes">시간 · <span class="time-out"><b id="myRecommendMinutesOut">30</b>분</span></label><input type="range" class="time-slider" id="myRecommendMinutes" min="5" max="90" step="5" value="30" aria-label="기본 감상 시간(분)"/></div><div class="my-edit-row"><label>화면</label><div class="theme-toggle" role="group" aria-label="화면 테마"><button type="button" id="themeLight" aria-pressed="true">라이트</button><button type="button" id="themeDark" aria-pressed="false">다크</button></div></div><div class="my-edit-row"><label for="myLyric">가사</label><select id="myLyric"><option value="no_preference">상관없어요</option><option value="instrumental_only">가사 없는 곡</option><option value="prefer_vocal">가사 있는 곡</option></select></div><div><label style="display:block;font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:6px">장르</label><div id="myGenreEdit" class="my-genre-edit"></div></div><button id="saveMyPrefs" class="my-save" type="button">저장</button><p id="myEditStatus" class="plane-note"></p></div></div>
           <div class="my-card"><h3>기록</h3><p id="myFeedbackSummary"></p><div id="myHistory" style="margin-top:8px"><p>아직 기록이 없어요.</p></div></div>
           <div class="my-card"><h3>계정</h3><button id="deleteMyData" class="mini-btn danger-btn" type="button">데이터·계정 삭제</button><p class="privacy-note">삭제는 되돌릴 수 없어요. AZT는 의학적 진단·치료를 제공하지 않습니다.</p></div>
         </div>
@@ -690,7 +690,6 @@ html[data-theme=dark] .time-out{color:var(--accent)}
       <select id="obLyric">
         <option value="no_preference" selected>상관없어요</option>
         <option value="instrumental_only">가사 없는 곡만요</option>
-        <option value="prefer_instrumental">가사 적은 곡이 좋아요</option>
         <option value="prefer_vocal">가사 있는 곡이 좋아요</option>
       </select>
 
@@ -885,10 +884,7 @@ async function loadEngine() {
    곡 수를 채우면 후보 풀 자체를 장르로 제한하고, 부족할 때만 타장르를 보충합니다. */
 const GLOBAL_K = 10;  // loadGlobalStats() 의 통계 축소에만 쓰임 (엔진 값과 별개)
 const FAVORITE_GENRES = ["K-pop","J-pop","발라드","힙합·랩","R&B·소울","인디","록·메탈","팝","일렉트로닉","재즈","클래식","OST","휴식·앰비언트"];   // 2026-09-22: 플랫폼 대분류 13종 (GENRE_OPTIONS 와 동일)
-/* 가사 선호 문턱. spokenness 는 순위 정규화라 값이 곧 백분위다 —
-   0.4 면 "말이 적은 쪽 40%". 연주곡 여부는 태그 instrumental 이 따로 알려주므로
-   문턱이 필요 없다. */
-const PREFER_INSTRUMENTAL_MAX_SPOKENNESS = 0.4;
+/* [2026-09-25] '가사 적은 곡' 문턱(PREFER_INSTRUMENTAL_MAX_SPOKENNESS)은 선택지와 함께 삭제 */
 /* v1 룰 태그로 폴백한 곡에서 연주곡을 가려낼 때 — 파이프라인과 같은 0.5 */
 const V1_INSTRUMENTAL_PROB_MIN = 0.5;
 
@@ -1009,10 +1005,9 @@ window.AZT_DEBUG = {
     console.log("── 화면 장르 버튼별 곡 수 ──"); console.table(GENRE_OPTIONS.map(g => ({ 버튼: g, 곡수: genreCounts()[g] || 0 })));
     console.log("── 어느 버튼에도 안 잡힌 표기 ──"); console.table(sortDesc(UNMAPPED_GENRES).map(([표기, 곡수]) => ({ 표기, 곡수 })));
     const inst = SONGS.filter(songIsInstrumental).length, noGenre = SONGS.filter(s => !(s.genres || []).length).length;
-    const lowTalk = SONGS.filter(s => songIsInstrumental(s) || songSpokenness(s) <= PREFER_INSTRUMENTAL_MAX_SPOKENNESS).length;
     console.log("── 가사 조건별 곡 수 ──");
     console.table([{ 조건: "전체", 곡수: SONGS.length }, { 조건: "가사 없는 곡만 (연주곡)", 곡수: inst },
-                   { 조건: "가사 있는 곡 (연주곡 제외)", 곡수: SONGS.length - inst }, { 조건: "가사 적은 곡 (연주곡 + 말 비중 하위 40%)", 곡수: lowTalk },
+                   { 조건: "가사 있는 곡 (연주곡 제외)", 곡수: SONGS.length - inst }, { 조건: "0.5 규칙과 다르게 판정된 곡(overrides)", 곡수: SONGS.filter(s => s.instOverride).length },
                    { 조건: "장르 버튼이 하나도 안 붙은 곡", 곡수: noGenre }]);
     return "위 표 4개를 캡처하거나 복사해 주세요";
   }
@@ -1095,6 +1090,16 @@ async function init() {
     if (!firstUser) await firebase.auth().signInAnonymously();
     setStatus("", "음악 데이터 불러오는 중…");
     let v2Missing = 0;
+    /* [2026-09-25] 가사 유무(연주곡 여부) 한 가지 기준:
+         is_instrumental = Firestore 의 is_instrumental(있으면) ?? data/instrumental_overrides.json ?? provider_raw.instrumentalness >= 0.5
+       0.5 는 Spotify 문서가 제시한 연주곡 경계값. overrides 는 그 값이 틀린 곡을 가사 DB(LRCLIB) 대조·검수로 뒤집은 목록
+       (근거는 가사유무_최종판정.xlsx). 옛 vocal_load 식·임계값 3개는 삭제. */
+    let INSTRUMENTAL_OVERRIDES = {};
+    try {
+      const r = await fetch("./data/instrumental_overrides.json?v=259", { cache: "no-cache" });
+      if (r.ok) INSTRUMENTAL_OVERRIDES = (await r.json()).overrides || {};
+    } catch (e) { console.warn("[AZT] instrumental_overrides.json 로드 실패 — 0.5 규칙만 사용", e); }
+    let instOverridden = 0;
     const snap = await firebase.firestore().collection("songs").get();
 
     snap.forEach(doc => {
@@ -1128,7 +1133,14 @@ async function init() {
       const trackId = d.spotify_track_id || d.source_track_id;
       const genresRaw = readRawGenres(d, pr);          // 데이터 표기 그대로 (예: ["K-발라드"])
       const genres = toGenreLabels(genresRaw);         // 화면 장르 이름으로 (예: ["K-pop", "발라드"])
+      const sid = d.song_id || doc.id;
+      let isInstrumental, instOverride = false;
+      if (typeof d.is_instrumental === "boolean") isInstrumental = d.is_instrumental;          // Firestore 정식 칸(업로드되면 최우선)
+      else if (sid in INSTRUMENTAL_OVERRIDES) { isInstrumental = !!INSTRUMENTAL_OVERRIDES[sid]; instOverridden++; instOverride = true; }
+      else if (typeof pr.instrumentalness === "number") isInstrumental = pr.instrumentalness >= 0.5;
+      else isInstrumental = null;                                                                 // 값 없음 → songIsInstrumental 의 태그 폴백
       SONGS.push({
+        isInstrumental, instOverride,
         id: doc.id,
         title: d.title || doc.id,
         artist: d.artist || "",
@@ -1145,6 +1157,7 @@ async function init() {
       return;
     }
     const v2Cov = SONGS.length ? Math.round((SONGS.length - v2Missing) / SONGS.length * 100) : 0;
+    console.info("[AZT] 가사 유무 — 연주곡 " + SONGS.filter(songIsInstrumental).length + "곡 / 뒤집은 곡(overrides) " + instOverridden + "곡");
     console.info("[AZT] V/A 소스 — v2 파이프라인 " + (SONGS.length - v2Missing) + "곡 / provider 폴백 " + v2Missing + "곡 (" + v2Cov + "%)");
     setStatus("ok", "연결 완료 — " + SONGS.length + "곡 준비됨"
       + (v2Missing ? " (v2 좌표 " + v2Cov + "%, 나머지는 provider 폴백)" : "")
@@ -1450,7 +1463,7 @@ function applyProfile(p) {
   if (p && Array.isArray(p.preferred_genres)) SELECTED_GENRES = normalizeGenreList(p.preferred_genres);
   if (p && p.recommend_minutes) RECOMMEND_MINUTES = Number(p.recommend_minutes) || 30;
   syncMinuteReadouts();
-  if (p && p.lyric_preference_default) $("lyric").value = p.lyric_preference_default;
+  if (p && p.lyric_preference_default) $("lyric").value = normalizeLyricPref(p.lyric_preference_default);
   renderGenreChips();
 }
 
@@ -2133,7 +2146,7 @@ function renderMyAzt() {
   if (guest) return;   // 비로그인: 안내만 보여주고 개인 데이터 렌더 생략
   const nameInput=$("myDisplayName"); if(nameInput) nameInput.value=(USER_PROFILE&&USER_PROFILE.display_name)||firebase.auth().currentUser?.displayName||"";
   syncMinuteReadouts();
-  const lyricInput=$("myLyric"); if(lyricInput) lyricInput.value=$("lyric")?.value||USER_PROFILE?.lyric_preference_default||"no_preference";
+  const lyricInput=$("myLyric"); if(lyricInput) lyricInput.value=normalizeLyricPref($("lyric")?.value||USER_PROFILE?.lyric_preference_default||"no_preference");
   const ge=$("myGenreEdit"); if(ge){ ge.innerHTML=GENRE_OPTIONS.map(g=>"<button type='button' aria-pressed='"+SELECTED_GENRES.includes(g)+"' data-my-genre='"+esc(g)+"'>"+esc(g)+"</button>").join(""); ge.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{const g=b.dataset.myGenre;if(SELECTED_GENRES.includes(g))SELECTED_GENRES=SELECTED_GENRES.filter(x=>x!==g);else SELECTED_GENRES=[...SELECTED_GENRES,g];b.setAttribute("aria-pressed",String(SELECTED_GENRES.includes(g)));renderGenreChips();})); }
   renderWall($("myPlaylist"));
   const hi = $("myHistory");
@@ -2244,6 +2257,8 @@ function bumpStats(songId, fields) {
 
 /* 말 비중·연주곡 여부는 두 군데(엔진 입력, 가사 선호 필터)에서 같은 기준으로 써야
    해서 함수로 묶어둔다. v2 태그를 먼저 보고, 없으면 v1 룰 태그로 내려간다. */
+/* 옛 저장값 '가사 적은 곡(prefer_instrumental)'은 선택지가 사라졌으므로 상관없음으로 읽는다 */
+function normalizeLyricPref(v) { return (v === "instrumental_only" || v === "prefer_vocal") ? v : "no_preference"; }
 function songSpokenness(s) {
   const t = s.tags || {};
   if (typeof t.spokenness === "number") return t.spokenness;      // v2
@@ -2252,6 +2267,7 @@ function songSpokenness(s) {
   return 0.5;   // 모르면 중립 — 0 으로 두면 전곡이 "말 없는 곡"이 된다
 }
 function songIsInstrumental(s) {
+  if (typeof s.isInstrumental === "boolean") return s.isInstrumental;      // [2026-09-25] 통일된 기준 (Firestore ?? overrides ?? 0.5)
   const t = s.tags || {};
   if (typeof t.instrumental === "number") return t.instrumental >= 0.5;     // v2 (0/1)
   if (typeof t.instrumental_probability === "number")                        // v1 근사
@@ -3099,7 +3115,7 @@ const NL_EMO_GROUPS = [   // 시트 안 묶음 (사분면 순)
   ["그냥 그럴 때", ["그냥 그래요","나른해요"]],
   ["괜찮고 들뜰 때", ["편안해요","기분 좋아요","설레요","신나요"]]
 ];
-const NL_LYRIC = { instrumental_only:"가사 없는 곡", prefer_instrumental:"가사 적은 곡", prefer_vocal:"가사 있는 곡" };
+const NL_LYRIC = { instrumental_only:"가사 없는 곡", prefer_vocal:"가사 있는 곡" };   // [2026-09-25] '가사 적은 곡' 삭제
 const NL_K = { 1:0.6, 2:1, 3:1.3 };          // 강도 → 중립(0.5,0.5)에서 얼마나 멀리. 칩 좌표 = 강도 2
 const NL_K_WORD = { 1:"조금", 2:"꽤", 3:"아주" };
 const nlByLabel = (list, l) => list.find(x => x.label.replace(/\s/g,"") === String(l || "").replace(/\s/g,""));
@@ -3395,11 +3411,8 @@ async function recommend() {
   GENRE_NOTICE = null;
   let pool = SONGS;
   /* instrumental_only / prefer_vocal 은 엔진 게이트로 넘긴다(아래 gates).
-     prefer_instrumental 은 '선호'라 게이트가 아니므로 여기서만 약하게 거른다. */
-  if (lyric === "prefer_instrumental")
-    pool = pool.filter(s => songIsInstrumental(s)
-                         || songSpokenness(s) <= PREFER_INSTRUMENTAL_MAX_SPOKENNESS);
-  else if (lyric === "prefer_vocal")
+     [2026-09-25] '가사 적은 곡(prefer_instrumental)' 선택지는 삭제 — 옛 저장값은 상관없음으로 취급. */
+  if (lyric === "prefer_vocal")
     pool = pool.filter(s => !songIsInstrumental(s));
   /* 장르 최우선: 시퀀스 곡 수를 채울 만큼 있으면 장르 곡만 사용 */
   /* 곡 수는 규칙 파일(iso.song_count)에서 읽는다 — 엔진과 같은 식. 이전엔 앱만 '분÷6, 3~15곡'을
