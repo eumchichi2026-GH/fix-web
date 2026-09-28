@@ -856,7 +856,7 @@ async function loadEngine() {
   } else {
     /* ?v= : 이미 설치된 옛 서비스워커(azt-v6)는 이 두 파일을 캐시에서 먼저 돌려준다.
        주소를 바꿔 그 캐시를 비켜 간다. 새 서비스워커(v7)부터는 network-first 라 값은 안 올려도 된다. */
-    AZT_ENGINE = await import("./engine/engine.js?v=254");
+    AZT_ENGINE = await import("./engine/engine.js?v=261");
     const res = await fetch("./rules/rules.compiled.json?v=254", { cache: "no-cache" });
     if (!res.ok) throw new Error("rules.compiled.json HTTP " + res.status);
     AZT_RULES = await res.json();
@@ -3418,7 +3418,7 @@ async function recommend() {
   /* 곡 수는 규칙 파일(iso.song_count)에서 읽는다 — 엔진과 같은 식. 이전엔 앱만 '분÷6, 3~15곡'을
      따로 갖고 있어서 30분에 앱은 5곡, 엔진은 8곡을 가정했다(장르 풀 충분 여부 판단이 어긋남). */
   const sc = AZT_RULES.iso.song_count;
-  const needCount = Math.max(sc.min, Math.min(sc.max, Math.floor(RECOMMEND_MINUTES / sc.per_minutes)));
+  const needCount = Math.max(sc.min, Math.min(sc.max, Math.round(RECOMMEND_MINUTES / sc.per_minutes)));   // [2.6.1] 엔진과 같은 round
   /* [2026-09-22] 장르가 충분한지는 엔진과 같은 조건으로 잰다.
      ① 가사 게이트(instrumental_only / prefer_vocal)를 먼저 적용한 뒤 세고,
      ② 곡 수가 아니라 '가수당 상한(max_per_artist)을 감안해 실제로 뽑을 수 있는 곡 수'로 본다.
@@ -3519,24 +3519,11 @@ async function recommend() {
     console.warn("[AZT] 걸음 상한이 " + result.relaxed_steps + "회 완화됨 — 후보 고갈. 카탈로그 확충 또는 step_limit_scale 재측정 필요");
   }
 
-  /* 시퀀스 뒤에 붙는 '더 들을 곡'은 엔진 경로가 아니므로 role=extra 로 구분해 기록한다 */
-  const estimated = s => Math.max(60, Number(s.durationSec) || 180);
-  const totalTargetSec = RECOMMEND_MINUTES * 60;
-  const used = new Set(seq.map(s => s.id));
-  let total = seq.reduce((a,s)=>a+estimated(s),0);
+  /* [2026-09-23 엔진 2.6.1] 재생 큐 밖 '추가 추천'(role=extra) 삭제 — 요청 시간에 맞는 곡 수를 엔진이 정하고
+     (실제 곡 길이로 재조정), 경로가 곧 전체 플레이리스트다. 로그 호환을 위해 extras 는 빈 배열로 남긴다. */
   const extras = [];
-  /* 경유 시퀀스는 '이동', 그 뒤 곡은 '도착한 상태 유지' 역할 → 목표 좌표에 가까운 순으로 채운다.
-     (이전엔 카탈로그 순서 그대로였다. 최근 재생 곡은 시퀀스와 같은 이유로 뺀다.) */
-  const recentSet = new Set(recentlyPlayedIds());
-  const dTgt = s => { const p = songVA(s); return p ? Math.hypot(p.v - tgt.v, p.e - tgt.e) : Infinity; };
-  const extraPool = pool.filter(s => !used.has(s.id) && !DISLIKED_SONGS.has(s.id) && !recentSet.has(s.id))
-                        .sort((a, b) => dTgt(a) - dTgt(b));
-  for (const c of extraPool) {
-    if (total >= totalTargetSec * 0.85) break;
-    extras.push(c); used.add(c.id); total += estimated(c);
-  }
-  /* 10/30/60분의 차이는 고정 곡 수가 아니라 목표 총 청취시간을 기준으로 만든다.
-     짧은 세션은 전환을 압축하고, 긴 세션은 목표 상태 구간을 충분히 유지한다. */
+  if (result.song_count && result.song_count.actual_min)
+    console.log("[AZT] 곡 수 " + seq.length + " · 예상 " + result.song_count.actual_min.toFixed(1) + "분 (요청 " + RECOMMEND_MINUTES + "분, 재조정 " + (result.song_count.duration_fit_rounds || 0) + "회)");
   const list = [...seq, ...extras];
   const stepOf = {}; seq.forEach((s,i)=>stepOf[s.id]=i+1);
   drawPath(cur, tgt, seq);
