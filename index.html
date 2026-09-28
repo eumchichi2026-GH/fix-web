@@ -2287,7 +2287,7 @@ function toContractSong(s) {
     instrumental: songIsInstrumental(s),
     genres: Array.isArray(s.genres) ? s.genres : [],
     popularity: Number(s.popularity || 0),
-    duration_ms: Math.round((Number(s.durationSec) || 210) * 1000),
+    duration_ms: Number(s.durationSec) > 0 ? Math.round(Number(s.durationSec) * 1000) : null,   // [2.6.1] 길이를 모르면 null — 엔진이 가짜 210초로 곡 수를 재조정하지 않도록
     tempo: songTempo01(s),
   };
 }
