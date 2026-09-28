@@ -29,8 +29,13 @@
                        밴드로 뭉치지 않고 실제 거리를 그대로 쓴다(밴드는 이동 구간에서만). (2) 그리디 탐색은 먼저 뽑힌 곡이
                        가장 가깝고 뒤로 갈수록 남은 후보 중 상대적으로 먼 곡이 걸리는 구조라, 이 구간만 사후에 '먼 것→가까운
                        것'으로 재배열해 마지막 곡이 항상 가장 가깝게(=도착) 끝나도록 한다. 곡 집합은 그대로, 순서만 바뀐다.
-                       preference.band 0.05→0.025 (2026-09-21 스윕 근거, μ 도입으로 '동률 폭 축소' 트레이드오프가 사라져 반영). */
-export const ENGINE_VERSION = "2.5.1";
+                       preference.band 0.05→0.025 (2026-09-21 스윕 근거, μ 도입으로 '동률 폭 축소' 트레이드오프가 사라져 반영).
+   2.6.1 (2026-09-23): 곡 수 상한(9) 제거 — 요청 시간이 곡 수를 정한다. (1) 곡 수 = round(분 / per_minutes) 로 추정한 뒤
+                       실제 duration_ms 합으로 재조정(최대 2회 재탐색). (2) 여정이 짧을 때는 '이동 걸음'만 min_step_span 으로
+                       제한하고 나머지 곡은 도착 걸음(목표 근처 머무름)으로 채운다 — 곡 수를 줄이지 않는다.
+                       (3) 재생 큐 밖 '추가 추천'(role=extra)은 앱에서 삭제 — 경로가 곧 전체 플레이리스트.
+                       규칙 v2.6.0: iso.song_count.max 9→40, preference.pref_weight 0→1.0 (2026-09-22 μ 스윕). */
+export const ENGINE_VERSION = "2.6.1";
 
 const R9 = (x) => Math.round(x * 1e9) / 1e9;
 const R6 = (x) => Math.round(x * 1e6) / 1e6;
@@ -402,7 +407,7 @@ function regionPool(universe, ctx, wp, term, rules) {
 // ── ISO ─────────────────────────────────────────────────
 function songCount(rules, durationMin) {
   const c = rules.iso.song_count;
-  return Math.max(c.min, Math.min(c.max, Math.floor(durationMin / c.per_minutes)));
+  return Math.max(c.min, Math.min(c.max, Math.round(durationMin / c.per_minutes)));   // [2.6.1] floor→round: 30분/3.73 = 8.04 → 8, 20분 → 5.4 → 5, 15분 → 4
 }
 function transitionAt(rules, durationMin) {
   for (const row of rules.iso.transition_point) if (durationMin <= row.up_to) return Number(row.at);
@@ -483,7 +488,34 @@ export function renderExplanations(rules, trace) {
   return msgs;
 }
 
+/* [2.6.1] 곡 수를 실제 곡 길이로 맞춘다.
+   1차: 시간/평균길이(per_minutes)로 곡 수 추정 → 경로 생성 → 뽑힌 곡들의 duration_ms 합이 요청 시간과
+   반 곡(per_minutes/2) 이상 어긋나면 그 차이만큼 곡 수를 고쳐 다시 탐색(최대 2회). 결과에 song_count.actual_min 을 남긴다. */
 export function recommend(catalog, rules, inputsIn) {
+  const c = rules.iso.song_count;
+  const dur = inputsIn.duration_min ?? 30;
+  const maxRetry = Number(c.duration_fit_retries ?? 2);
+  let n = null, result = null;
+  for (let i = 0; i <= maxRetry; i++) {
+    result = recommendOnce(catalog, rules, inputsIn, n);
+    const seq = result.sequence;
+    if (!seq.length) break;
+    const secs = seq.map((r) => Number(r.trace && r.trace.duration_ms) || 0);
+    if (secs.some((x) => !x)) break;                              // 길이 정보 없는 곡이 있으면 재조정하지 않는다
+    const actualMin = secs.reduce((a, b) => a + b, 0) / 60000;
+    result.song_count.actual_min = R6(actualMin);
+    result.song_count.duration_fit_rounds = i;
+    const avg = actualMin / seq.length;
+    const diff = dur - actualMin;                                   // + 면 더 넣어야, − 면 빼야
+    if (Math.abs(diff) < avg / 2) break;
+    const n2 = Math.max(Number(c.min), Math.min(Number(c.max), seq.length + Math.round(diff / avg)));
+    if (n2 === seq.length || n2 === n) break;
+    n = n2;
+  }
+  return result;
+}
+
+function recommendOnce(catalog, rules, inputsIn, nOverride = null) {
   const term = rules.ranking.terms[0];
   const ctx = prepare(catalog, rules);
 
@@ -494,12 +526,14 @@ export function recommend(catalog, rules, inputsIn) {
      지금·목표가 가까운데 곡을 많이 끼우면 한 걸음이 preference.band 보다 잘게 쪼개져
      순위가 곡을 구분하지 못하고, 경로가 좁은 덩어리 안을 맴돈다(rules 의 min_step_span_evidence).
      여정거리는 band 와 같은 작업 좌표계(coordinate_space)에서 잰다 — band 가 그 좌표계의 폭이기 때문. */
-  const byTime = songCount(rules, dur);
+  const byTime = nOverride ?? songCount(rules, dur);
   const journey = R9(dist(nowC, tgtC, term));
   const span = Number(rules.iso.min_step_span || 0);
   const byJourney = span > 0 ? Math.floor(journey / span) + 1 : byTime;
-  const n = Math.max(Number(rules.iso.song_count.min), Math.min(byTime, byJourney));
-  const songCountOut = { by_time: byTime, by_journey: byJourney, effective: n, journey: R6(journey) };
+  /* [2.6.1] 곡 수는 시간이 정한다. 여정이 짧으면 '이동 걸음' 수만 byJourney 로 제한하고 나머지는 도착 걸음으로 채운다. */
+  const n = Math.max(Number(rules.iso.song_count.min), byTime);
+  const moveSteps = Math.max(1, Math.min(n, byJourney));
+  const songCountOut = { by_time: byTime, by_journey: byJourney, effective: n, move_steps: moveSteps, journey: R6(journey) };
   const inputs = { ...inputsIn, _n_songs: n };
 
   const { active } = applyModulators(rules, inputs);
@@ -514,7 +548,10 @@ export function recommend(catalog, rules, inputsIn) {
              baselines: baseOut, song_count: songCountOut, sequence: [] };
   }
 
-  const { pts: wps, arrival: arrivalMask } = waypoints(nowC, tgtC, n, transitionAt(rules, dur));
+  /* 전환점 at: 곡 k 의 진행도 t = (k/(n−1))/at. 이동 걸음을 moveSteps 개로 제한하려면 at ≤ (moveSteps−1)/(n−1). */
+  const atRule = transitionAt(rules, dur);
+  const atEff = n > 1 ? Math.min(atRule, (moveSteps - 1) / (n - 1)) : atRule;
+  const { pts: wps, arrival: arrivalMask } = waypoints(nowC, tgtC, n, atEff);
 
   const band = Number(rules.preference.band);
   const varc = rules.variation || {};
@@ -620,6 +657,7 @@ export function recommend(catalog, rules, inputsIn) {
       song_V_raw: Number(s.V),     // 원좌표 (카탈로그 값)
       song_A_raw: Number(s.A),
       va_source: s.va_source ?? null,
+      duration_ms: Number(s.duration_ms) || null,   // [2.6.1] 시간 맞춤용
       rules_hash: rules.rules_hash,
     };
     return { song_id: s.song_id, trace, explanations: renderExplanations(rules, trace) };
